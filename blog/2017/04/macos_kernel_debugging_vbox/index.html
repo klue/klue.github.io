@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="en">
+
+  <head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+
+  <title>Debugging macOS Kernel using VirtualBox</title>
+  <meta property="og:title" content="Debugging macOS Kernel using VirtualBox" />
+  <meta name="twitter:title" content="Debugging macOS Kernel using VirtualBox" />
+  <meta name="description" content="Update: In the HN discussion, awalton mentioned you can set CPUID flags in VMWare. Simply adding cpuid.7.ebx = &quot;-----------0--------------------&quot; to the vmx file will disable SMAP.
+Late last year, I upgraded my old MBP to the 2016 model with a Skylake processor. As I was debugging a kernel exploit, it turned out that SMAP was enabled inside my VMWare Fusion VM. I wanted to avoid dealing with SMAP, but couldn&#39;t figure out how to disable it in Fusion.">
+  <meta property="og:description" content="Update: In the HN discussion, awalton mentioned you can set CPUID flags in VMWare. Simply adding cpuid.7.ebx = &quot;-----------0--------------------&quot; to the vmx file will disable SMAP.
+Late last year, I upgraded my old MBP to the 2016 model with a Skylake processor. As I was debugging a kernel exploit, it turned out that SMAP was enabled inside my VMWare Fusion VM. I wanted to avoid dealing with SMAP, but couldn&#39;t figure out how to disable it in Fusion.">
+  <meta name="twitter:description" content="Update: In the HN discussion, awalton mentioned you can set CPUID flags in VMWare. Simply adding cpuid.7.ebx = &quot;-----------0--------------------&quot; to the vmx file will disable SMAP.
+Late last …">
+  <meta name="author" content="klue"/>
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:site" content="@kedyliu" />
+  <meta name="twitter:creator" content="@kedyliu" />
+  <meta property="og:url" content="https://klue.github.io/blog/2017/04/macos_kernel_debugging_vbox/" />
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="klue-less thoughts" />
+
+  <meta name="generator" content="Hugo 0.30.2" />
+  <link rel="canonical" href="https://klue.github.io/blog/2017/04/macos_kernel_debugging_vbox/" />
+  <link rel="alternate" href="https://klue.github.io/index.xml" type="application/rss+xml" title="klue-less thoughts">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.7.1/katex.min.css" integrity="sha384-wITovz90syo1dJWVh32uuETPVEtGigN07tkttEqPv+uR2SE/mbQcG7ATL28aI9H0" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css" />
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://klue.github.io//css/main.css" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Lora:400,700,400italic,700italic" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Open+Sans:300italic,400italic,600italic,700italic,800italic,400,300,600,700,800" />
+  <link rel="stylesheet" href="https://klue.github.io//css/pygment_highlights.css" />
+  <link rel="stylesheet" href="https://klue.github.io//css/highlight.min.css" /><link href="/css/prism.css" rel="stylesheet" />
+
+</head>
+
+
+  <body>
+
+    <nav class="navbar navbar-default navbar-fixed-top navbar-custom">
+  <div class="container-fluid">
+    <div class="navbar-header">
+      <button type="button" class="navbar-toggle" data-toggle="collapse" data-target="#main-navbar">
+        <span class="sr-only">Toggle navigation</span>
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+      </button>
+      <a class="navbar-brand" href="https://klue.github.io/">klue-less thoughts</a>
+    </div>
+
+    <div class="collapse navbar-collapse" id="main-navbar">
+      <ul class="nav navbar-nav navbar-right">
+        
+          
+            <li>
+              <a title="about" href="/about/">about</a>
+            </li>
+          
+        
+
+        
+
+        
+      </ul>
+    </div>
+
+    <div class="avatar-container">
+      <div class="avatar-img-border">
+        
+      </div>
+    </div>
+
+  </div>
+</nav>
+
+
+
+
+    
+  
+  
+  
+
+
+
+
+  
+
+  <header class="header-section ">
+    
+    <div class="intro-header no-img">
+      
+      <div class="container">
+        <div class="row">
+          <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+            <div class="post-heading">
+              <h1>Debugging macOS Kernel using VirtualBox</h1>
+                
+                
+                  <span class="post-meta">
+  Posted on April 10, 2017
+  
+</span>
+
+
+                
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+
+
+    <div class="container" role="main">
+      
+        <div class="row">
+  <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+    <article role="main" class="blog-post">
+      <p><em>Update:</em> In the <a href="https://news.ycombinator.com/item?id=14079163">HN discussion</a>, awalton mentioned you can set CPUID flags in VMWare. Simply adding <code>cpuid.7.ebx = &quot;-----------0--------------------&quot;</code> to the vmx file will disable SMAP.</p>
+
+<p>Late last year, I upgraded my old MBP to the 2016 model with a Skylake
+processor. As I was debugging a kernel exploit, it turned out that
+<a href="https://lwn.net/Articles/517475/">SMAP</a> was enabled inside my VMWare Fusion
+VM. I wanted to avoid dealing with SMAP, but couldn't figure out how to disable
+it in Fusion. Luckily, VirtualBox VMs do not support SMAP (yet?).</p>
+
+<p>This post will be a step-by-step guide on how to setup macOS kernel
+source-level debugging using VirtualBox. Though all the step examples are
+geared toward VirtualBox, this guide can also be used to setup kernel debugging
+on VMWare Fusion since it's even more straightforward in Fusion.</p>
+
+<h2 id="installing-virtualbox-and-sierra">Installing VirtualBox and Sierra</h2>
+
+<p>If you don't already have a macOS VirtualBox VM, we must first install the
+target macOS on a VM. You can either provide the vmdk from a VMWare Fusion VM,
+or create a fresh VM. VirtualBox requires an ISO image to install the OS for
+newly created VMs. The commands below can be used to create an ISO from the
+Sierra install app obtained from the <a href="https://itunes.apple.com/us/app/macos-sierra/id1127487414?ls=1&amp;mt=12">Mac app
+store</a>.</p>
+
+<pre><code class="language-text">$ hdiutil attach /Applications/Install\ macOS\ Sierra.app/Contents/SharedSupport/InstallESD.dmg -noverify -nobrowse -mountpoint /Volumes/installesd
+$ hdiutil create -o /tmp/Sierra -size 8g -type SPARSE -layout SPUD -fs HFS+J
+$ hdiutil attach /tmp/Sierra.sparseimage -noverify -nobrowse -mountpoint /Volumes/install
+$ asr restore -source /Volumes/installesd/BaseSystem.dmg -target /Volumes/install -noprompt -noverify -erase
+$ rm /Volumes/OS\ X\ Base\ System/System/Installation/Packages
+$ cp -rp /Volumes/installesd/Packages /Volumes/OS\ X\ Base\ System/System/Installation/
+$ cp -rp /Volumes/installesd/BaseSystem.dmg /Volumes/OS\ X\ Base\ System/BaseSystem.dmg
+$ cp -rp /Volumes/installesd/BaseSystem.chunklist /Volumes/OS\ X\ Base\ System/BaseSystem.chunklist
+$ hdiutil detach /Volumes/installesd
+$ hdiutil detach /Volumes/OS\ X\ Base\ System/
+$ hdiutil resize -sectors min /tmp/Sierra.sparseimage
+$ hdiutil convert /tmp/Sierra.sparseimage -format UDTO -o /tmp/Sierra
+$ rm /tmp/Sierra.sparseimage
+$ mv /tmp/Sierra.cdr /tmp/Sierra.iso
+</code></pre>
+
+<h4 id="networking">Networking</h4>
+
+<p>If you are using a bridged adapter, there isn't anything special you need to
+do.</p>
+
+<p>If you decide to go with NAT, you'll need to enable port forwarding for KDP to
+work with the VM. In the adapter settings, choose
+<em>Advanced</em><span  class="math">\(\rightarrow\)</span><em>Port Forwarding</em>. We need to reach 41139/UDP on the
+debugee VM, so I forward localhost 41139/UDP to the VM's 41139/UDP.</p>
+
+<h2 id="installing-xcode">Installing XCode</h2>
+
+<p>Install XCode on your host machine. The easiest way is to install it from the
+<a href="https://itunes.apple.com/us/app/xcode/id497799835?ls=1&amp;mt=12">Mac app store</a>.
+After installing, accepting the XCode license is required either by opening
+XCode and accepting, or through command line.</p>
+
+<pre><code class="language-text">$ sudo xcodebuild -license accept
+</code></pre>
+
+<h2 id="install-kernel-debug-kit-kdk-on">Install Kernel Debug Kit (KDK) on</h2>
+
+<p>On our host debugger machine, we need to install the <a href="https://developer.apple.com/download/more/">KDK from the Apple
+Developer site</a> corresponding to
+our debugee macOS version and build. In this guide, I used 10.12 build 16A323.</p>
+
+<p>The KDK installs to <code>/Library/Developer/KDKs</code> and provides RELEASE,
+DEVELOPMENT, and DEBUG kernels for macOS, as well as symbols for these kernels
+and various Apple kexts. The difference between the different kernels is that
+the DEVELOPMENT and DEBUG kernels have additional assertions and error checking
+compared to RELEASE with the DEBUG build having even more than DEVELOPMENT.</p>
+
+<p><em>Note:</em> The debugee system does not need to have the KDK installed.</p>
+
+<h2 id="update-nvram-bootargs">Update nvram boot-args</h2>
+
+<p>In order to debug the VM, we must set the <code>debug</code> option of <code>boot-args</code> in
+nvram on our debugee VM. There are numerous options in addition to <code>debug</code> that
+we can use. Below are a few that could be of interest including <code>debug</code>.</p>
+
+<ul>
+<li><code>-v</code>: Always boot the system in verbose mode.</li>
+<li><code>kcsuffix</code>: Specifies which kernel to boot using a given suffix.</li>
+<li><code>pmuflags</code>: Many people still seem to recommend setting this option to 1. However, <a href="https://developer.apple.com/library/content/documentation/Darwin/Conceptual/KernelProgramming/build/build.html">Apple's Kernel Programming Guide</a> says the power management watchdog timer &quot;is only present in G4 and earlier desktops and laptops and in early G5 desktops&quot;, and the other primary watchdog timer is &quot;normally only enabled in OS X Server.&quot; Thus, this option doesn't seem to do anything, though setting it doesn't hurt.</li>
+<li><code>-zc zlog=&lt;zone_name&gt;</code>: <code>zc</code> in conjunction with <code>zlog</code> logs both allocations and frees to the specified zone.</li>
+<li><code>debug</code>: This option allows us to perform remote kernel debugging. Available flags are listed in the <a href="https://developer.apple.com/library/content/documentation/Darwin/Conceptual/KernelProgramming/build/build.html#//apple_ref/doc/uid/TP30000905-CH221-BABDGEGF">Apple docs</a>. I usually use <code>DB_LOG_PI_SCRN | DB_ARP | DB_NMI</code>.
+
+<ul>
+<li>Non-maskable interrupts (NMI) can be triggered by pressing <em>control + option + command + shift + escape</em>. Triggering an NMI will break in the debugger which is super convenient. This key combo does not play well with VirtualBox when it covers the host key combo so I rebound the host key to <em>right command + right option</em>.</li>
+</ul></li>
+</ul>
+
+<h3 id="modifying-nvram">Modifying nvram</h3>
+
+<p>In VMWare Fusion, you modify nvram using the <code>nvram</code> command like so:</p>
+
+<pre><code class="language-text">$ sudo nvram boot-args=&quot;-v debug=0x144&quot;
+</code></pre>
+
+<p>On VirtualBox, you'll find it's not so easy. After a reboot, the nvram
+modifications will have disappeared. <a href="https://www.virtualbox.org/manual/ch03.html#idm1685">VirtualBox User Manual
+&sect;3.13.2</a> sheds some
+light:</p>
+
+<blockquote>
+<p>It is currently not possible to manipulate EFI variables from within a
+running guest (e.g., setting the &quot;boot-args&quot; variable by running the nvram
+tool in a Mac OS X guest will not work). As an alternative way,
+&quot;VBoxInternal2/EfiBootArgs&quot; extradata can be passed to a VM in order to set
+the &quot;boot-args&quot; variable. To change the &quot;boot-args&quot; EFI variable:</p>
+</blockquote>
+
+<p>Thus, we need to shutdown our VM and run the commands below on our host.</p>
+
+<pre><code class="language-text">$ VBoxManage list vms # take the UUID to use in the next command
+&quot;macOS 10.12.0&quot; {9ad936f8-9360-44a6-ba3e-c4d92b4243e8}
+$ VBoxManage setextradata 9ad936f8-9360-44a6-ba3e-c4d92b4243e8 VBoxInternal2/EfiBootArgs &quot;-v debug=0x144&quot;
+</code></pre>
+
+<h2 id="swapping-kernels">Swapping Kernels</h2>
+
+<p>I alluded to debugging different builds of kernels previously, mentioning that
+the <code>kcsuffix</code> option specifies which kernel build to use. The kernel file must
+be at <code>/System/Library/Kernels</code> on the debugee VM. It should not be a surprise
+that this directory is <a href="https://support.apple.com/en-us/HT204899">protected by System Integrity Protection
+(SIP)</a>. Therefore, if you want to use
+a KDK kernel or <a href="http://shantonu.blogspot.ca">a self-compiled kernel</a>, you must
+first boot into recovery, copy the target kernel to the above directory,
+invalidate the kext cache, and then reboot.</p>
+
+<h4 id="reliably-booting-into-recovery">Reliably Booting into Recovery</h4>
+
+<p>In Fusion, booting into recovery mode using <em>cmd+R</em> is as easy as doing so on a
+physical machine. VirtualBox, on the other hand, requires a <a href="http://anadoxin.org/blog/disabling-system-integrity-protection-from-guest-el-capitan-under-virtualbox-5.html">few more
+steps</a>.</p>
+
+<p>When booting the VM, hit F12, and select <em>Boot Manager</em><span  class="math">\(\rightarrow\)</span><em>EFI
+Internal Shell</em>. You will be greeted by an EFI shell. To boot into recovery,
+type:</p>
+
+<pre><code class="language-text">FS2:\com.apple.recovery.boot\boot.efi
+</code></pre>
+
+<p>Once the recovery GUI loads, launch a terminal, move the target kernels, then
+invalidate the kextcache.</p>
+
+<pre><code class="language-text"># mv /path/to/kernels/kernel.development /System/Library/Kernels
+# kextcache -invalidate /Volumes/Macintosh\ HD
+# reboot
+</code></pre>
+
+<p>Before reboot, you can optionally disable SIP if desired.</p>
+
+<pre><code class="language-text"># csrutil disable
+Successfully disabled System Integrity Protection. Please restart the machine for the changes to take effect.
+</code></pre>
+
+<h2 id="sourcelevel-debugging">Source-level Debugging</h2>
+
+<p>Download the <a href="https://opensource.apple.com">XNU source code</a> corresponding to
+the debuggee XNU version. To gain source-level debugging, LLDB will look in
+<code>/Library/Caches/com.apple.xbs/Sources/xnu/xnu-...</code> for the kernel source. You
+can either place the downloaded source there, or create a symlink there that
+points to the source. Alternatively, you can also set <code>target.source-map</code> in
+LLDB.</p>
+
+<pre><code class="language-text">lldb&gt; settings set target.source-map /Library/Caches/com.apple.xbs/Sources/xnu/xnu-3789.1.32 /Users/kedy/Downloads/xnu-3789.1.32
+</code></pre>
+
+<p>Previous versions of macOS like Yosemite, you had to place source code in
+<code>/SourceCache/xnu/</code>.</p>
+
+<h2 id="setting-up-lldb">Setting up LLDB</h2>
+
+<p>Finally now, we can break out the debugger. The example below sets the target
+file to the RELEASE kernel build.</p>
+
+<p>To use the XNU LLDB macros in Sierra KDK, the <code>macholib</code> Python module is
+required now. A simple <code>pip install macholib</code> should do the trick. To use the
+nifty LLDB macros, copy paste the KDK debug script command that is prompted
+when you first set the target file to a KDK kernel.</p>
+
+<p>After triggering an NMI (or waiting for debugger to halt the boot process if
+you chose <code>DB_HALT</code> flag), connect to the debugee with the command <code>kdp-remote
+&lt;ip&gt;</code> where <code>&lt;ip&gt;</code> is the IP address (localhost if you used the NAT port
+forwarding).</p>
+
+<pre><code class="language-text">$ lldb /Library/Developer/KDKs/KDK_10.11.2_15C50.kdk/System/Library/Kernels/kernel
+(lldb) target create &quot;/Library/Developer/KDKs/KDK_10.11.2_15C50.kdk/System/Library/Kernels/kernel&quot;
+warning: 'kernel' contains a debug script. To run this script in this debug session:
+
+    command script import &quot;/Library/Developer/KDKs/KDK_10.11.2_15C50.kdk/System/Library/Kernels/kernel.dSYM/Contents/Resources/DWARF/../Python/kernel.py&quot;
+
+To run all discovered debug scripts in this session:
+
+    settings set target.load-script-from-symbol-file true
+
+Current executable set to '/Library/Developer/KDKs/KDK_10.11.2_15C50.kdk/System/Library/Kernels/kernel' (x86_64).
+(lldb) command script import &quot;/Library/Developer/KDKs/KDK_10.11.2_15C50.kdk/System/Library/Kernels/kernel.dSYM/Contents/Resources/DWARF/../Python/kernel.py&quot;
+Loading kernel debugging from /Library/Developer/KDKs/KDK_10.11.2_15C50.kdk/System/Library/Kernels/kernel.dSYM/Contents/Resources/DWARF/../Python/kernel.py
+LLDB version lldb-370.0.40
+  Swift-3.1
+settings set target.process.python-os-plugin-path &quot;/Library/Developer/KDKs/KDK_10.11.2_15C50.kdk/System/Library/Kernels/kernel.dSYM/Contents/Resources/DWARF/../Python/lldbmacros/core/operating_system.py&quot;
+settings set target.trap-handler-names hndl_allintrs hndl_alltraps trap_from_kernel hndl_double_fault hndl_machine_check _fleh_prefabt _ExceptionVectorsBase _ExceptionVectorsTable _fleh_undef _fleh_dataabt _fleh_irq _fleh_decirq _fleh_fiq_generic _fleh_dec
+command script import &quot;/Library/Developer/KDKs/KDK_10.11.2_15C50.kdk/System/Library/Kernels/kernel.dSYM/Contents/Resources/DWARF/../Python/lldbmacros/xnu.py&quot;
+xnu debug macros loaded successfully. Run showlldbtypesummaries to enable type summaries.
+
+
+(lldb) kdp-remote 192.168.149.184
+Version: Darwin Kernel Version 15.2.0: Fri Nov 13 19:56:56 PST 2015; root:xnu-3248.20.55~2/RELEASE_X86_64; UUID=17EA3101-D2E4-31BF-BDA9-931F51049F93; stext=0xffffff8007a00000
+Kernel UUID: 17EA3101-D2E4-31BF-BDA9-931F51049F93
+Load Address: 0xffffff8007a00000
+Kernel slid 0x7800000 in memory.
+Loaded kernel file /Library/Developer/KDKs/KDK_10.11.2_15C50.kdk/System/Library/Kernels/kernel
+Target arch: x86_64
+Instantiating threads completely from saved state in memory.
+Loading 82 kext modules warning: Can't find binary/dSYM for com.apple.kec.corecrypto (491718F5-B509-31DC-92B5-6BAC95E3F494)
+.warning: Can't find binary/dSYM for com.apple.kec.pthread (0888BA0A-49EE-394A-AEB1-1E5C6838A1F2)
+
+(omitted...)
+
+. done.
+kernel was compiled with optimization - stepping may behave oddly; variables may not be available.
+Process 1 stopped
+* thread #2, name = '0xffffff800db8b000', queue = '0x0', stop reason = signal SIGSTOP
+    frame #0: 0xffffff8007bd655e kernel`Debugger(message=&lt;unavailable&gt;) at model_dep.c:1020 [opt]
+   1017
+   1018		doprnt_hide_pointers = old_doprnt_hide_pointers;
+   1019		__asm__(&quot;int3&quot;);
+-&gt; 1020		hw_atomic_sub(&amp;debug_mode, 1);
+   1021	}
+   1022
+   1023	char *
+(lldb)  
+</code></pre>
+
+<p>Voila, source-level debugging macOS kernel!</p>
+
+    </article>
+
+    <ul class="pager blog-pager">
+      
+        <li class="previous">
+          <a href="https://klue.github.io/blog/2017/03/pegasus_shift/" data-toggle="tooltip" data-placement="top" title="A Shifty Detail in Pegasus">&larr; Previous Post</a>
+        </li>
+      
+      
+        <li class="next">
+          <a href="https://klue.github.io/blog/2017/09/hevd_stack_gs/" data-toggle="tooltip" data-placement="top" title="HEVD Stack Overflow GS">Next Post &rarr;</a>
+        </li>
+      
+    </ul>
+
+    
+      
+        <div class="disqus-comments">
+          <div id="disqus_thread"></div>
+<script>
+    var disqus_config = function () {
+    
+    
+    
+    };
+    (function() {
+        if (["localhost", "127.0.0.1"].indexOf(window.location.hostname) != -1) {
+            document.getElementById('disqus_thread').innerHTML = 'Disqus comments not available by default when the website is previewed locally.';
+            return;
+        }
+        var d = document, s = d.createElement('script'); s.async = true;
+        s.src = '//' + "klueless" + '.disqus.com/embed.js';
+        s.setAttribute('data-timestamp', +new Date());
+        (d.head || d.body).appendChild(s);
+    })();
+</script>
+<noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+<a href="https://disqus.com" class="dsq-brlink">comments powered by <span class="logo-disqus">Disqus</span></a>
+        </div>
+      
+    
+
+  </div>
+</div>
+
+      
+    </div>
+
+    <footer>
+  <div class="container">
+    <div class="row">
+      <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+        <ul class="list-inline text-center footer-links">
+          
+              <li>
+                <a href="https://github.com/klue" title="GitHub">
+                  <span class="fa-stack fa-lg">
+                    <i class="fa fa-circle fa-stack-2x"></i>
+                    <i class="fa fa-github fa-stack-1x fa-inverse"></i>
+                  </span>
+                </a>
+              </li>
+              <li>
+                <a href="https://twitter.com/kedyliu" title="Twitter">
+                  <span class="fa-stack fa-lg">
+                    <i class="fa fa-circle fa-stack-2x"></i>
+                    <i class="fa fa-twitter fa-stack-1x fa-inverse"></i>
+                  </span>
+                </a>
+              </li>
+              <li>
+                <a href="https://linkedin.com/in/kedyliu" title="LinkedIn">
+                  <span class="fa-stack fa-lg">
+                    <i class="fa fa-circle fa-stack-2x"></i>
+                    <i class="fa fa-linkedin fa-stack-1x fa-inverse"></i>
+                  </span>
+                </a>
+              </li>
+          
+          <li>
+            <a href="https://klue.github.io/index.xml" title="RSS">
+              <span class="fa-stack fa-lg">
+                <i class="fa fa-circle fa-stack-2x"></i>
+                <i class="fa fa-rss fa-stack-1x fa-inverse"></i>
+              </span>
+            </a>
+          </li>
+          
+        </ul>
+        <p class="credits copyright text-muted">
+          klue
+          &nbsp;&bull;&nbsp;
+          2017
+
+          
+            &nbsp;&bull;&nbsp;
+            <a href="https://klue.github.io/">klue-less thoughts</a>
+          
+        </p>
+        
+        <p class="credits theme-by text-muted">
+          <a href="http://gohugo.io">Hugo v0.30.2</a> powered &nbsp;&bull;&nbsp; Theme by <a href="http://deanattali.com/beautiful-jekyll/">Beautiful Jekyll</a> adapted to <a href="https://github.com/halogenica/beautifulhugo">Beautiful Hugo</a>
+          
+        </p>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.7.1/katex.min.js" integrity="sha384-/y1Nn9+QQAipbNQWU65krzJralCnuOasHncUFXGkdwntGeSvQicrYkiUBwsgUqc1" crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.7.1/contrib/auto-render.min.js" integrity="sha384-dq1/gEHSxPZQ7DdrM82ID4YVol9BYyU7GbWlIwnwyPzotpoc57wDw/guX8EaYGPx" crossorigin="anonymous"></script>
+<script src="https://code.jquery.com/jquery-1.12.4.min.js" integrity="sha256-ZosEbRLbNQzLpnKIkEdrPv7lOy9C27hHQ+Xp8a4MxAQ=" crossorigin="anonymous"></script>
+<script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js" integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa" crossorigin="anonymous"></script>
+<script src="https://klue.github.io//js/main.js"></script>
+<script src="https://klue.github.io//js/highlight.min.js"></script>
+<script> hljs.initHighlightingOnLoad(); </script>
+<script> renderMathInElement(document.body); </script>
+
+
+
+
+
+
+<script>
+(function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+(i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+})(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+ga('create', 'UA-92808803-1', 'auto');
+ga('send', 'pageview');
+</script>
+<script src="/js/prism.js"></script>
+
+
+
+  </body>
+</html>

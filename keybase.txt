@@ -1,0 +1,54 @@
+==================================================================
+https://keybase.io/klue
+--------------------------------------------------------------------
+
+I hereby claim:
+
+  * I am an admin of https://klue.github.io
+  * I am klue (https://keybase.io/klue) on keybase.
+  * I have a public key ASBRjVsVxCjceYXKYklInPcddDU1kmfIg3_XSA7lKvdPwgo
+
+To do so, I am signing this object:
+
+{
+    "body": {
+        "key": {
+            "eldest_kid": "01207f8b5716f74dbf74556eff2e4ffc508a4d8630f4760d793d8a432838b13188fe0a",
+            "host": "keybase.io",
+            "kid": "0120518d5b15c428dc7985ca6249489cf71d7435359267c8837fd7480ee52af74fc20a",
+            "uid": "0e7633f943db1c3ebde5889224a81519",
+            "username": "klue"
+        },
+        "service": {
+            "hostname": "klue.github.io",
+            "protocol": "https:"
+        },
+        "type": "web_service_binding",
+        "version": 1
+    },
+    "client": {
+        "name": "keybase.io go client",
+        "version": "1.0.18"
+    },
+    "ctime": 1488462906,
+    "expire_in": 504576000,
+    "merkle_root": {
+        "ctime": 1488462868,
+        "hash": "8a3a8e95f5ed7783d2e5efd9bff53a3ce28eb255000ea3455af36b846986a4bbdc21dfbfb446eb49a0a5f2090abd1b3b7504e32679260b294191a6ca1e481023",
+        "seqno": 934425
+    },
+    "prev": "6770fa494b954c4b90d7e047f895c23105332811391e882a59a53146168816cd",
+    "seqno": 13,
+    "tag": "signature"
+}
+
+which yields the signature:
+
+hKRib2R5hqhkZXRhY2hlZMOpaGFzaF90eXBlCqNrZXnEIwEgUY1bFcQo3HmFymJJSJz3HXQ1NZJnyIN/10gO5Sr3T8IKp3BheWxvYWTFAvN7ImJvZHkiOnsia2V5Ijp7ImVsZGVzdF9raWQiOiIwMTIwN2Y4YjU3MTZmNzRkYmY3NDU1NmVmZjJlNGZmYzUwOGE0ZDg2MzBmNDc2MGQ3OTNkOGE0MzI4MzhiMTMxODhmZTBhIiwiaG9zdCI6ImtleWJhc2UuaW8iLCJraWQiOiIwMTIwNTE4ZDViMTVjNDI4ZGM3OTg1Y2E2MjQ5NDg5Y2Y3MWQ3NDM1MzU5MjY3Yzg4MzdmZDc0ODBlZTUyYWY3NGZjMjBhIiwidWlkIjoiMGU3NjMzZjk0M2RiMWMzZWJkZTU4ODkyMjRhODE1MTkiLCJ1c2VybmFtZSI6ImtsdWUifSwic2VydmljZSI6eyJob3N0bmFtZSI6ImtsdWUuZ2l0aHViLmlvIiwicHJvdG9jb2wiOiJodHRwczoifSwidHlwZSI6IndlYl9zZXJ2aWNlX2JpbmRpbmciLCJ2ZXJzaW9uIjoxfSwiY2xpZW50Ijp7Im5hbWUiOiJrZXliYXNlLmlvIGdvIGNsaWVudCIsInZlcnNpb24iOiIxLjAuMTgifSwiY3RpbWUiOjE0ODg0NjI5MDYsImV4cGlyZV9pbiI6NTA0NTc2MDAwLCJtZXJrbGVfcm9vdCI6eyJjdGltZSI6MTQ4ODQ2Mjg2OCwiaGFzaCI6IjhhM2E4ZTk1ZjVlZDc3ODNkMmU1ZWZkOWJmZjUzYTNjZTI4ZWIyNTUwMDBlYTM0NTVhZjM2Yjg0Njk4NmE0YmJkYzIxZGZiZmI0NDZlYjQ5YTBhNWYyMDkwYWJkMWIzYjc1MDRlMzI2NzkyNjBiMjk0MTkxYTZjYTFlNDgxMDIzIiwic2Vxbm8iOjkzNDQyNX0sInByZXYiOiI2NzcwZmE0OTRiOTU0YzRiOTBkN2UwNDdmODk1YzIzMTA1MzMyODExMzkxZTg4MmE1OWE1MzE0NjE2ODgxNmNkIiwic2Vxbm8iOjEzLCJ0YWciOiJzaWduYXR1cmUifaNzaWfEQJZvps4QHaFHq3Fyu7/N0hQBmYaSOEpnrJjvdK1v+q/yFxLWjtV/nwwXxu8gQajOzcH+oN1hNDVK5K4ab+4UDwaoc2lnX3R5cGUgpGhhc2iCpHR5cGUIpXZhbHVlxCC+7nO7PfSdLBdtMg3QsUSvQRDWAXFAwc3lFDQXekCvp6N0YWfNAgKndmVyc2lvbgE=
+
+And finally, I am proving ownership of this host by posting or
+appending to this document.
+
+View my publicly-auditable identity here: https://keybase.io/klue
+
+==================================================================

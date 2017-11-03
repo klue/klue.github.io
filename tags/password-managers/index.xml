@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes" ?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>Password Managers on klue-less thoughts</title>
+    <link>https://klue.github.io/tags/password-managers/</link>
+    <description>Recent content in Password Managers on klue-less thoughts</description>
+    <generator>Hugo -- gohugo.io</generator>
+    <language>en-us</language>
+    <lastBuildDate>Thu, 02 Mar 2017 00:00:00 +0000</lastBuildDate>
+    <atom:link href="https://klue.github.io/tags/password-managers/" rel="self" type="application/rss+xml" />
+    
+    <item>
+      <title>How to think about password managers</title>
+      <link>https://klue.github.io/blog/2017/03/password_manager/</link>
+      <pubDate>Thu, 02 Mar 2017 00:00:00 +0000</pubDate>
+      
+      <guid>https://klue.github.io/blog/2017/03/password_manager/</guid>
+      <description>&lt;p&gt;There exist numerous methods to authenticate a user to a system, but using only passwords continues to be the dominating choice [&lt;a href=&#34;#foot&#34;&gt;1&lt;/a&gt;, &lt;a href=&#34;#foot&#34;&gt;2&lt;/a&gt;]. Under these circumstances, ideally, a user would have strong, unique passwords for each account that he or she has. However, this is an unrealistic expectation for the average human being. Thus largely, the general population uses a handful of weak passwords for all of their user accounts.[&lt;a href=&#34;#foot&#34;&gt;3&lt;/a&gt;, &lt;a href=&#34;#foot&#34;&gt;4&lt;/a&gt;, &lt;a href=&#34;#foot&#34;&gt;5&lt;/a&gt;, &lt;a href=&#34;#foot&#34;&gt;6&lt;/a&gt;]&lt;/p&gt;
+
+&lt;p&gt;At an attempt to alleviate this problem, password managers were introduced. A password manager is a program that stores and organizes all of a user&#39;s passwords. Access to a user&#39;s passwords in the password manager typically requires knowledge of a &amp;quot;master password.&amp;quot; This pushes the burden of remembering strong, unique passwords from the human user to a software application.&lt;/p&gt;
+
+&lt;p&gt;Fairly often, the topic will come up whether to use a password manager or not. It is argued back and forth. In my opinion, password managers are one of the best things since sliced bread. There&#39;s no better feeling than using a random 50 character password or using &lt;code&gt;openssl rand -base64 5&lt;/code&gt; output as an answer to a security question (I use 5 bytes because if I want to get anything done with a support line over the phone, it&#39;s more realistic to spell out a 7 character string than 50 character string).&lt;/p&gt;
+
+&lt;p&gt;I&#39;ve noticed, though, that many tech savvy people are reluctant to adopt such a technology. I know plenty of &lt;em&gt;security professionals&lt;/em&gt; that use either the same password for all accounts or use a handful of passwords in a tiered fashion (one password for important accounts, another for less sensitive accounts, another for the ones they care about even less, and so on). The average non-technical person, in my experience, is quick to adopt password managers once they discover such apps, but it&#39;s frustrating to me how information security professionals are so stubborn to do the same.&lt;/p&gt;
+
+&lt;p&gt;The biggest excuse I hear is probably &amp;quot;I don&#39;t want all my eggs in one basket,&amp;quot; though there are others &lt;a href=&#34;#foot&#34;&gt;[7]&lt;/a&gt;. At first, this tradeoff makes it unclear whether using a password manager is any safer than the traditional method of memorization. To tackle this problem, we really need to change the way we think about password managers. They shouldn&#39;t be thought of as &amp;quot;password vaults,&amp;quot; but &amp;quot;password strengtheners.&amp;quot; Here, I will describe the proper way to utilize password managers such that they are &lt;em&gt;in theory no less safe than using pure memorization.&lt;/em&gt;&lt;/p&gt;
+
+&lt;p&gt;Assume user Alice is currently using a 2-tier password scheme with the passwords &lt;span  class=&#34;math&#34;&gt;\(P_1\)&lt;/span&gt; for important accounts (email, bank) and &lt;span  class=&#34;math&#34;&gt;\(P_2\)&lt;/span&gt; for the rest of her accounts. In this scenario, we will require Alice to come up with a separate master password. The strength of the master password does not actually matter as our proof does not rely on it.&lt;/p&gt;
+
+&lt;p&gt;To login to her bank account, Alice should take the password entry in the password manager for her bank account, and incorporate it with her password &lt;span  class=&#34;math&#34;&gt;\(P_1\)&lt;/span&gt;. &amp;quot;Incorporate&amp;quot; entails somehow merging the two -- most likely prepending or appending the entry to &lt;span  class=&#34;math&#34;&gt;\(P_1\)&lt;/span&gt;. The idea is the password entry in her password manager adds to the strength and complexity of her original password &lt;span  class=&#34;math&#34;&gt;\(P_1\)&lt;/span&gt;. A similar method should also be adopted for accounts with password &lt;span  class=&#34;math&#34;&gt;\(P_2\)&lt;/span&gt;.&lt;/p&gt;
+
+&lt;p&gt;Notice how other than retrieving the password from the password manger, the way Alice uses her passwords does not need to change. As we have seen she still &amp;quot;uses&amp;quot; password &lt;span  class=&#34;math&#34;&gt;\(P_1\)&lt;/span&gt; for important accounts and can use &lt;span  class=&#34;math&#34;&gt;\(P_2\)&lt;/span&gt; for less sensitive accounts. The password manager passwords merely strengthened her original passwords.&lt;/p&gt;
+
+&lt;p&gt;Now, let&#39;s revisit the &amp;quot;eggs in one basket&amp;quot; problem again. There are two scenarios:&lt;/p&gt;
+
+&lt;ol&gt;
+&lt;li&gt;Alice&#39;s password vault is somehow compromised (e.g. LastPass vendor compromise &lt;a href=&#34;#foot&#34;&gt;[8]&lt;/a&gt; or Tavis Ormandy ;) &lt;a href=&#34;#foot&#34;&gt;[9]&lt;/a&gt;). In this case, the strength of her passwords falls back to the original strength of &lt;span  class=&#34;math&#34;&gt;\(P_1\)&lt;/span&gt; for important accounts and &lt;span  class=&#34;math&#34;&gt;\(P_2\)&lt;/span&gt; for the rest of her accounts.&lt;/li&gt;
+&lt;li&gt;Alice&#39;s computer is compromised, e.g. infected with malware. In this case, we can assume the password vault would also be compromised since it just takes unlocking it once for malware to log the master password. At this point, the security of her accounts, password-wise, is in the same state as it was in situation 1. We can thus conclude, again, that the strength of her passwords falls back to &lt;span  class=&#34;math&#34;&gt;\(P_1\)&lt;/span&gt; or &lt;span  class=&#34;math&#34;&gt;\(P_2\)&lt;/span&gt; (that, and both &lt;span  class=&#34;math&#34;&gt;\(P_1\)&lt;/span&gt; and &lt;span  class=&#34;math&#34;&gt;\(P_2\)&lt;/span&gt; are logged by the malware once she attempts to logging into accounts).&lt;/li&gt;
+&lt;/ol&gt;
+
+&lt;p&gt;In both situations, the use of a password manager isn&#39;t any less safe than traditional memorization alone in theory. The proposed method does not solely rely on the password manager for the security of Alice&#39;s account; its function is to strengthen her existing passwords.&lt;/p&gt;
+
+&lt;p&gt;The caveat here is, as you probably guessed, the phrase &amp;quot;in theory.&amp;quot; In reality, it&#39;s a little more nuanced than the above scenarios and their assumptions. The password manager technically does open up attack surface. As an example, when I open &lt;a href=&#34;https://1password.com&#34;&gt;1Password&lt;/a&gt; on macOS, it opens up a few ports. Port 49506 is the port used for local LAN syncing of passwords between devices (which can be disabled in the app).
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre style=&#34;background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;    $ sudo lsof -iTCP -sTCP:LISTEN -P -n | awk &lt;span style=&#34;color:#c41a16&#34;&gt;&amp;#39;{print $1, $3, $5, $9, $10}&amp;#39;&lt;/span&gt; | column -t
+    COMMAND    USER  TYPE  NAME
+    ...
+    2BUA8C4S2  kedy  IPv4  *:49506          &lt;span style=&#34;color:#000&#34;&gt;(&lt;/span&gt;LISTEN&lt;span style=&#34;color:#000&#34;&gt;)&lt;/span&gt;
+    2BUA8C4S2  kedy  IPv6  *:49506          &lt;span style=&#34;color:#000&#34;&gt;(&lt;/span&gt;LISTEN&lt;span style=&#34;color:#000&#34;&gt;)&lt;/span&gt;
+    2BUA8C4S2  kedy  IPv4  &lt;span style=&#34;color:#1c01ce&#34;&gt;127&lt;/span&gt;.0.0.1:6258   &lt;span style=&#34;color:#000&#34;&gt;(&lt;/span&gt;LISTEN&lt;span style=&#34;color:#000&#34;&gt;)&lt;/span&gt;
+    2BUA8C4S2  kedy  IPv6  &lt;span style=&#34;color:#000&#34;&gt;[&lt;/span&gt;::1&lt;span style=&#34;color:#000&#34;&gt;]&lt;/span&gt;:6258       &lt;span style=&#34;color:#000&#34;&gt;(&lt;/span&gt;LISTEN&lt;span style=&#34;color:#000&#34;&gt;)&lt;/span&gt;
+    2BUA8C4S2  kedy  IPv4  &lt;span style=&#34;color:#1c01ce&#34;&gt;127&lt;/span&gt;.0.0.1:6263   &lt;span style=&#34;color:#000&#34;&gt;(&lt;/span&gt;LISTEN&lt;span style=&#34;color:#000&#34;&gt;)&lt;/span&gt;
+    2BUA8C4S2  kedy  IPv6  &lt;span style=&#34;color:#000&#34;&gt;[&lt;/span&gt;::1&lt;span style=&#34;color:#000&#34;&gt;]&lt;/span&gt;:6263       &lt;span style=&#34;color:#000&#34;&gt;(&lt;/span&gt;LISTEN&lt;span style=&#34;color:#000&#34;&gt;)&lt;/span&gt;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;
+The service listening on &lt;code&gt;0.0.0.0&lt;/code&gt; increases the attack surface. Therefore, the chance of falling into situation 2 above increases. Though given the choice of picking between a slightly increased attack surface vs strong passwords, I would pick the latter any day.&lt;/p&gt;
+
+&lt;p&gt;Lastly, I&#39;ll note that using this method of password managers means that you won&#39;t be able to use any accompanying password manager browser extensions. Although honestly, you probably shouldn&#39;t be anyway -- copy pasting is the safest way to go. In addition, you should also consider&lt;/p&gt;
+
+&lt;ul&gt;
+&lt;li&gt;avoiding the builtin browser&lt;/li&gt;
+&lt;li&gt;avoid using the cloud to sync passwords&lt;/li&gt;
+&lt;li&gt;disabling any listening services if possible, or block the listening ports with your host firewall&lt;/li&gt;
+&lt;li&gt;sync password vault manually (e.g. use &lt;a href=&#34;https://macroplant.com/iexplorer&#34;&gt;iExplorer&lt;/a&gt; to transfer 1Password&#39;s sqlite db)&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;p&gt;&lt;a name=&#39;foot&#39;&gt;&lt;/a&gt;
+&lt;a name=&#34;f1&#34;&gt;[1]&lt;/a&gt; &lt;a href=&#34;http://research.microsoft.com/pubs/161585/QuestToReplacePasswords.pdf&#34;&gt;http://research.microsoft.com/pubs/161585/QuestToReplacePasswords.pdf&lt;/a&gt;&lt;br&gt;
+&lt;a name=&#34;f2&#34;&gt;[2]&lt;/a&gt; &lt;a href=&#34;http://users.ics.forth.gr/~elathan/papers/eurosec15.pdf&#34;&gt;http://users.ics.forth.gr/~elathan/papers/eurosec15.pdf&lt;/a&gt;&lt;br&gt;
+&lt;a name=&#34;f3&#34;&gt;[3]&lt;/a&gt; &lt;a href=&#34;http://cyberside.planet.ee/docs/www2007-A%20Large-Scale%20Study%20of%20Web%20Password%20Habits.pdf&#34;&gt;http://cyberside.planet.ee/docs/www2007-A%20Large-Scale%20Study%20of%20Web%20Password%20Habits.pdf&lt;/a&gt;&lt;br&gt;
+&lt;a name=&#34;f4&#34;&gt;[4]&lt;/a&gt; &lt;a href=&#34;https://cups.cs.cmu.edu/soups/2006/proceedings/p44_gaw.pdf&#34;&gt;https://cups.cs.cmu.edu/soups/2006/proceedings/p44_gaw.pdf&lt;/a&gt;&lt;br&gt;
+&lt;a name=&#34;f5&#34;&gt;[5]&lt;/a&gt; &lt;a href=&#34;http://www.canberra.edu.au/cis/storage/CIS_PayPal_Whitepaper_FINAL.pdf&#34;&gt;http://www.canberra.edu.au/cis/storage/CIS_PayPal_Whitepaper_FINAL.pdf&lt;/a&gt;&lt;br&gt;
+&lt;a name=&#34;f6&#34;&gt;[6]&lt;/a&gt; &lt;a href=&#34;http://www.csid.com/wp-content/uploads/2012/09/CS_PasswordSurvey_FullReport_FINAL.pdf&#34;&gt;http://www.csid.com/wp-content/uploads/2012/09/CS_PasswordSurvey_FullReport_FINAL.pdf&lt;/a&gt;&lt;br&gt;
+&lt;a name=&#34;f7&#34;&gt;[7]&lt;/a&gt; &lt;a href=&#34;https://www.internetsociety.org/sites/default/files/08%20why-do-people-adopt-or-reject-smartphone-password-managers.pdf&#34;&gt;https://www.internetsociety.org/sites/default/files/08%20why-do-people-adopt-or-reject-smartphone-password-managers.pdf&lt;/a&gt;&lt;br&gt;
+&lt;a name=&#34;f8&#34;&gt;[8]&lt;/a&gt; &lt;a href=&#34;https://blog.lastpass.com/2015/06/lastpass-security-notice.html/&#34;&gt;https://blog.lastpass.com/2015/06/lastpass-security-notice.html/&lt;/a&gt;&lt;br&gt;
+&lt;a name=&#34;f9&#34;&gt;[9]&lt;/a&gt; P0 issue &lt;a href=&#34;https://bugs.chromium.org/p/project-zero/issues/detail?id=884&#34;&gt;884&lt;/a&gt;, &lt;a href=&#34;https://bugs.chromium.org/p/project-zero/issues/detail?id=888&#34;&gt;888&lt;/a&gt;, &lt;a href=&#34;https://bugs.chromium.org/p/project-zero/issues/detail?id=890&#34;&gt;890&lt;/a&gt;&lt;/p&gt;
+</description>
+    </item>
+    
+  </channel>
+</rss>

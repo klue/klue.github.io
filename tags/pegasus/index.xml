@@ -1,0 +1,190 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes" ?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>Pegasus on klue-less thoughts</title>
+    <link>https://klue.github.io/tags/pegasus/</link>
+    <description>Recent content in Pegasus on klue-less thoughts</description>
+    <generator>Hugo -- gohugo.io</generator>
+    <language>en-us</language>
+    <lastBuildDate>Tue, 07 Mar 2017 00:00:00 +0000</lastBuildDate>
+    <atom:link href="https://klue.github.io/tags/pegasus/" rel="self" type="application/rss+xml" />
+    
+    <item>
+      <title>A Shifty Detail in Pegasus</title>
+      <link>https://klue.github.io/blog/2017/03/pegasus_shift/</link>
+      <pubDate>Tue, 07 Mar 2017 00:00:00 +0000</pubDate>
+      
+      <guid>https://klue.github.io/blog/2017/03/pegasus_shift/</guid>
+      <description>&lt;p&gt;Late last year,
+&lt;a href=&#34;https://blog.lookout.com/blog/2016/08/25/trident-pegasus/&#34;&gt;Pegasus&lt;/a&gt; received
+all the buzz in the macOS/iOS scene. The spyware was used by nation state
+actors, targeting human rights defender Ahmed Mansoor. Developed by NSO Group
+in Israel, the malware is usually introduced via a &lt;a href=&#34;https://citizenlab.org/2017/02/bittersweet-nso-mexico-spyware/&#34;&gt;malicious link through text
+message&lt;/a&gt;, and
+is capable of gaining remote kernel code execution on the target iOS device&#39;s
+before jailbreaking and installing itself onto the victim device.&lt;/p&gt;
+
+&lt;p&gt;Pegasus leverages 3 vulnerabilities collectively known as Trident-- a webkit
+memory corruption, a kernel infoleak, and another memory corruption in the
+kernel. &lt;a href=&#34;http://jndok.github.io/2016/10/04/pegasus-writeup/&#34;&gt;Countless&lt;/a&gt;
+&lt;a href=&#34;https://jaq.alibaba.com/community/art/show?articleid=532&#34;&gt;posts&lt;/a&gt; have been
+posted accompanied with proof-of-concepts for the kernel portion of Trident.
+This post isn&#39;t going to cover the details of the kernel exploits chain like
+the others. Instead, I just wanted to highlight and explain a minor detail in
+the infoleak portion that could cause some confusion.&lt;/p&gt;
+
+&lt;p&gt;Recall that the infoleak vulnerability resided in &lt;code&gt;OSUnserializeBinary&lt;/code&gt;&#39;s big
+switch case for &lt;code&gt;kOSSerializeNumber&lt;/code&gt; where &lt;code&gt;len&lt;/code&gt; is passed to initialize an
+&lt;code&gt;OSNumber&lt;/code&gt;, but is never checked.
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre style=&#34;background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4&#34;&gt;&lt;code class=&#34;language-c&#34; data-lang=&#34;c&#34;&gt;    &lt;span style=&#34;color:#a90d91&#34;&gt;case&lt;/span&gt; &lt;span style=&#34;color:#000&#34;&gt;kOSSerializeNumber&lt;/span&gt;:
+        &lt;span style=&#34;color:#000&#34;&gt;bufferPos&lt;/span&gt; &lt;span style=&#34;color:#000&#34;&gt;+=&lt;/span&gt; &lt;span style=&#34;color:#a90d91&#34;&gt;sizeof&lt;/span&gt;(&lt;span style=&#34;color:#a90d91&#34;&gt;long&lt;/span&gt; &lt;span style=&#34;color:#a90d91&#34;&gt;long&lt;/span&gt;);
+        &lt;span style=&#34;color:#a90d91&#34;&gt;if&lt;/span&gt; (&lt;span style=&#34;color:#000&#34;&gt;bufferPos&lt;/span&gt; &lt;span style=&#34;color:#000&#34;&gt;&amp;gt;&lt;/span&gt; &lt;span style=&#34;color:#000&#34;&gt;bufferSize&lt;/span&gt;) &lt;span style=&#34;color:#a90d91&#34;&gt;break&lt;/span&gt;;
+        &lt;span style=&#34;color:#000&#34;&gt;value&lt;/span&gt; &lt;span style=&#34;color:#000&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#000&#34;&gt;next&lt;/span&gt;[&lt;span style=&#34;color:#1c01ce&#34;&gt;1&lt;/span&gt;];
+        &lt;span style=&#34;color:#000&#34;&gt;value&lt;/span&gt; &lt;span style=&#34;color:#000&#34;&gt;&amp;lt;&amp;lt;=&lt;/span&gt; &lt;span style=&#34;color:#1c01ce&#34;&gt;32&lt;/span&gt;;
+        &lt;span style=&#34;color:#000&#34;&gt;value&lt;/span&gt; &lt;span style=&#34;color:#000&#34;&gt;|=&lt;/span&gt; &lt;span style=&#34;color:#000&#34;&gt;next&lt;/span&gt;[&lt;span style=&#34;color:#1c01ce&#34;&gt;0&lt;/span&gt;];
+        &lt;span style=&#34;color:#000&#34;&gt;o&lt;/span&gt; &lt;span style=&#34;color:#000&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#000&#34;&gt;OSNumber&lt;/span&gt;&lt;span style=&#34;color:#000&#34;&gt;::&lt;/span&gt;&lt;span style=&#34;color:#000&#34;&gt;withNumber&lt;/span&gt;(&lt;span style=&#34;color:#000&#34;&gt;value&lt;/span&gt;, &lt;span style=&#34;color:#000&#34;&gt;len&lt;/span&gt;);
+        &lt;span style=&#34;color:#000&#34;&gt;next&lt;/span&gt; &lt;span style=&#34;color:#000&#34;&gt;+=&lt;/span&gt; &lt;span style=&#34;color:#1c01ce&#34;&gt;2&lt;/span&gt;;
+        &lt;span style=&#34;color:#a90d91&#34;&gt;break&lt;/span&gt;;&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/p&gt;
+
+&lt;p&gt;Digging deeper down, we can see exactly how an &lt;code&gt;OSNumber&lt;/code&gt; is initialized when
+going through &lt;code&gt;OSUnserializeBinary&lt;/code&gt;. In the snippet below, the actual value of
+the &lt;code&gt;OSNumber&lt;/code&gt; is obtained through the provided value logical anded with the
+&lt;code&gt;sizeMask&lt;/code&gt;. The &lt;code&gt;sizeMask&lt;/code&gt; is a pound defined value in the beginning of the
+file that that basically just masks out any bits not used by our value.
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre style=&#34;background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4&#34;&gt;&lt;code class=&#34;language-c&#34; data-lang=&#34;c&#34;&gt;&lt;span style=&#34;color:#633820&#34;&gt;#define sizeMask (~0ULL &amp;gt;&amp;gt; (64 - size))
+&lt;/span&gt;&lt;span style=&#34;color:#633820&#34;&gt;&lt;/span&gt;
+&lt;span style=&#34;color:#a90d91&#34;&gt;bool&lt;/span&gt; &lt;span style=&#34;color:#000&#34;&gt;OSNumber&lt;/span&gt;&lt;span style=&#34;color:#000&#34;&gt;::&lt;/span&gt;&lt;span style=&#34;color:#000&#34;&gt;init&lt;/span&gt;(&lt;span style=&#34;color:#a90d91&#34;&gt;unsigned&lt;/span&gt; &lt;span style=&#34;color:#a90d91&#34;&gt;long&lt;/span&gt; &lt;span style=&#34;color:#a90d91&#34;&gt;long&lt;/span&gt; &lt;span style=&#34;color:#000&#34;&gt;inValue&lt;/span&gt;, &lt;span style=&#34;color:#a90d91&#34;&gt;unsigned&lt;/span&gt; &lt;span style=&#34;color:#a90d91&#34;&gt;int&lt;/span&gt; &lt;span style=&#34;color:#000&#34;&gt;newNumberOfBits&lt;/span&gt;)
+{
+    &lt;span style=&#34;color:#a90d91&#34;&gt;if&lt;/span&gt; (&lt;span style=&#34;color:#000&#34;&gt;!&lt;/span&gt;&lt;span style=&#34;color:#000&#34;&gt;super&lt;/span&gt;&lt;span style=&#34;color:#000&#34;&gt;::&lt;/span&gt;&lt;span style=&#34;color:#000&#34;&gt;init&lt;/span&gt;())
+        &lt;span style=&#34;color:#a90d91&#34;&gt;return&lt;/span&gt; &lt;span style=&#34;color:#a90d91&#34;&gt;false&lt;/span&gt;;
+
+    &lt;span style=&#34;color:#000&#34;&gt;size&lt;/span&gt; &lt;span style=&#34;color:#000&#34;&gt;=&lt;/span&gt; &lt;span style=&#34;color:#000&#34;&gt;newNumberOfBits&lt;/span&gt;;
+    &lt;span style=&#34;color:#000&#34;&gt;value&lt;/span&gt; &lt;span style=&#34;color:#000&#34;&gt;=&lt;/span&gt; (&lt;span style=&#34;color:#000&#34;&gt;inValue&lt;/span&gt; &lt;span style=&#34;color:#000&#34;&gt;&amp;amp;&lt;/span&gt; &lt;span style=&#34;color:#000&#34;&gt;sizeMask&lt;/span&gt;);
+
+    &lt;span style=&#34;color:#a90d91&#34;&gt;return&lt;/span&gt; &lt;span style=&#34;color:#a90d91&#34;&gt;true&lt;/span&gt;;
+}&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/p&gt;
+
+&lt;p&gt;As I was trying to understand the Trident infoleak, I couldn&#39;t wrap my head
+around how everyone was able to leak the return address of
+&lt;code&gt;is_io_registry_entry_get_property_bytes&lt;/code&gt; and, in addition, leak the &lt;code&gt;OSNumber&lt;/code&gt;
+value using a &lt;code&gt;len&lt;/code&gt; of &lt;code&gt;0x200&lt;/code&gt;. For example, the output below is from my &lt;a href=&#34;https://github.com/klue/pegasus_kernel&#34;&gt;PoC
+exploit&lt;/a&gt;.
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre style=&#34;background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4&#34;&gt;&lt;code class=&#34;language-text&#34; data-lang=&#34;text&#34;&gt;[.] leaked data:
+    0x4242424241414141 &amp;lt;-- OSNumber value
+    0xffffff802c274584
+    0xffffff802c76c400
+    0x4
+    0xffffff80296245a0
+    0xffffff802c2745b4
+    0xffffff887e9e3e30
+    0xffffff801ed962cf &amp;lt;-- return address&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/p&gt;
+
+&lt;p&gt;Quoting the &lt;a href=&#34;http://www.open-std.org/jtc1/sc22/wg21/docs/papers/2014/n4296.pdf&#34;&gt;C++ standard (2014 draft) chapter
+5.8&lt;/a&gt;:&lt;/p&gt;
+
+&lt;blockquote&gt;
+&lt;p&gt;The &lt;strong&gt;behavior is undefined&lt;/strong&gt; if the right operand is &lt;strong&gt;negative&lt;/strong&gt;, or
+greater than or equal to the length in bits of the promoted left operand.&lt;/p&gt;
+&lt;/blockquote&gt;
+
+&lt;p&gt;Just to do a quick test, I ran
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre style=&#34;background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;$ cat foo.cpp
+&lt;span style=&#34;color:#177500&#34;&gt;#include &amp;lt;stdio.h&amp;gt;
+&lt;/span&gt;&lt;span style=&#34;color:#177500&#34;&gt;&lt;/span&gt;
+int main&lt;span style=&#34;color:#000&#34;&gt;(&lt;/span&gt;int argc, char **argv&lt;span style=&#34;color:#000&#34;&gt;)&lt;/span&gt; &lt;span style=&#34;color:#000&#34;&gt;{&lt;/span&gt;
+    printf&lt;span style=&#34;color:#000&#34;&gt;(&lt;/span&gt;&lt;span style=&#34;color:#c41a16&#34;&gt;&amp;#34;%#llx\n&amp;#34;&lt;/span&gt;, ~0ULL &amp;gt;&amp;gt; &lt;span style=&#34;color:#000&#34;&gt;(&lt;/span&gt;0x40 - 0x200&lt;span style=&#34;color:#000&#34;&gt;))&lt;/span&gt;;
+
+    &lt;span style=&#34;color:#a90d91&#34;&gt;return&lt;/span&gt; &lt;span style=&#34;color:#1c01ce&#34;&gt;0&lt;/span&gt;;
+&lt;span style=&#34;color:#000&#34;&gt;}&lt;/span&gt;
+$ ./foo
+0x7fff5a1fa6b8
+$ ./foo
+0x7fff532f26b8
+$ ./foo
+0x7fff5db0c6b8&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/p&gt;
+
+&lt;p&gt;So naturally, I thought that the leaked data that corresponded to the
+&lt;code&gt;OSNumber&lt;/code&gt; value would just be garbage, but this was not what I was seeing. I
+was seeing the whole 64 bits of constructed data. Perplexed but intrigued, I
+decided to get to the bottom of this even though it doesn&#39;t really matter for
+the actual exploit.&lt;/p&gt;
+
+&lt;p&gt;Shortly after I wrote the test program above, I realized that the compiler
+might have optimized the program to not include the shift. If you disassemble
+it, you can confirm that&#39;s indeed the case. Whatever was in the counter
+register is actually passed as the second parameter of &lt;code&gt;printf&lt;/code&gt; which is why it
+looks like we&#39;re printing stack addresses. Instead of writing another test
+program, I decided to just take a look at the disassembled &lt;code&gt;OSNumber::init&lt;/code&gt;.&lt;/p&gt;
+
+&lt;p&gt;&lt;figure&gt;&lt;img src=&#34;https://klue.github.io/images/pegasus_shift-disass_osnumber_init.png&#34; alt=&#34;Disassembly of OSNumber::init(unsigned long long, unsigned int)&#34;&gt;&lt;/figure&gt;&lt;/p&gt;
+
+&lt;p&gt;Here, &lt;code&gt;edx&lt;/code&gt; is &lt;code&gt;newNumberOfBits&lt;/code&gt; which is assigned to &lt;code&gt;size&lt;/code&gt;. &lt;code&gt;ecx&lt;/code&gt; is &lt;code&gt;0x40&lt;/code&gt;
+(64 decimal). &lt;code&gt;ecx&lt;/code&gt; subtracts our size &lt;code&gt;edx&lt;/code&gt;, and the least significant byte
+becomes our shift count. After the subtraction, &lt;code&gt;ecx&lt;/code&gt; should become
+&lt;code&gt;0xfffffe40&lt;/code&gt; (0x40-0x200), and thus &lt;code&gt;cl&lt;/code&gt; becomes &lt;code&gt;0x40&lt;/code&gt; which is exactly the
+bit length of an unsigned long long. Still, intuition would say that logical
+right shift of the whole bit length would result in 0.&lt;/p&gt;
+
+&lt;p&gt;The behavior we&#39;re seeing is quickly explained when we look at &lt;a href=&#34;https://software.intel.com/sites/default/files/managed/39/c5/325462-sdm-vol-1-2abcd-3abcd.pdf&#34;&gt;Intel 64 and
+IA-32 architectures software developer&#39;s
+manual&lt;/a&gt;&#39;s
+section about SAL/SAR/SHL/SHR.&lt;/p&gt;
+
+&lt;blockquote&gt;
+&lt;p&gt;The count operand can be an immediate value or the CL register. The &lt;strong&gt;count
+is masked to 5 bits (or 6 bits if in 64-bit mode and REX.W is used&lt;/strong&gt;). The
+count range is limited to 0 to 31 (or 63 if 64-bit mode and REX.W is used). A
+special opcode encoding is provided for a count of 1.&lt;/p&gt;
+
+&lt;p&gt;...&lt;/p&gt;
+
+&lt;p&gt;In 64-bit mode, the instruction&#39;s default operation size is 32 bits and the
+mask width for CL is 5 bits. Using a REX prefix in the form of REX.R permits
+access to additional registers (R8-R15). Using a REX prefix in the form of
+&lt;strong&gt;REX.W promotes operation to 64-bits and sets the mask width for CL to 6
+bits&lt;/strong&gt;. See the summary chart at the beginning of this section for encoding
+data and limits.&lt;/p&gt;
+&lt;/blockquote&gt;
+
+&lt;p&gt;Indeed, the corresponding opcode is &lt;code&gt;48 D3 E8&lt;/code&gt; which has the &lt;a href=&#34;http://wiki.osdev.org/X86-64_Instruction_Encoding#Encoding&#34;&gt;REX.W
+prefix&lt;/a&gt;. Masking 6
+bits means that an Intel processor will shift at most &lt;span  class=&#34;math&#34;&gt;\(2^6-1=63\)&lt;/span&gt; bits before
+cycling back to 0 shift count.&lt;/p&gt;
+
+&lt;p&gt;Modifying our original test program slightly, we can see this exact behavior.
+&lt;div class=&#34;highlight&#34;&gt;&lt;pre style=&#34;background-color:#fff;-moz-tab-size:4;-o-tab-size:4;tab-size:4&#34;&gt;&lt;code class=&#34;language-bash&#34; data-lang=&#34;bash&#34;&gt;$ cat foo.cpp
+&lt;span style=&#34;color:#177500&#34;&gt;#include &amp;lt;stdio.h&amp;gt;
+&lt;/span&gt;&lt;span style=&#34;color:#177500&#34;&gt;#include &amp;lt;stdlib.h&amp;gt;
+&lt;/span&gt;&lt;span style=&#34;color:#177500&#34;&gt;&lt;/span&gt;
+int main&lt;span style=&#34;color:#000&#34;&gt;(&lt;/span&gt;int argc, char **argv&lt;span style=&#34;color:#000&#34;&gt;)&lt;/span&gt; &lt;span style=&#34;color:#000&#34;&gt;{&lt;/span&gt;
+    printf&lt;span style=&#34;color:#000&#34;&gt;(&lt;/span&gt;&lt;span style=&#34;color:#c41a16&#34;&gt;&amp;#34;%#llx\n&amp;#34;&lt;/span&gt;, ~0ULL &amp;gt;&amp;gt; &lt;span style=&#34;color:#000&#34;&gt;(&lt;/span&gt;0x40 - atoi&lt;span style=&#34;color:#000&#34;&gt;(&lt;/span&gt;argv&lt;span style=&#34;color:#000&#34;&gt;[&lt;/span&gt;&lt;span style=&#34;color:#1c01ce&#34;&gt;1&lt;/span&gt;&lt;span style=&#34;color:#000&#34;&gt;])))&lt;/span&gt;;
+
+    &lt;span style=&#34;color:#a90d91&#34;&gt;return&lt;/span&gt; &lt;span style=&#34;color:#1c01ce&#34;&gt;0&lt;/span&gt;;
+&lt;span style=&#34;color:#000&#34;&gt;}&lt;/span&gt;
+$ &lt;span style=&#34;color:#a90d91&#34;&gt;for&lt;/span&gt; i in &lt;span style=&#34;color:#c41a16&#34;&gt;`&lt;/span&gt;seq &lt;span style=&#34;color:#1c01ce&#34;&gt;0&lt;/span&gt; &lt;span style=&#34;color:#1c01ce&#34;&gt;70&lt;/span&gt;&lt;span style=&#34;color:#c41a16&#34;&gt;`&lt;/span&gt;; &lt;span style=&#34;color:#a90d91&#34;&gt;do&lt;/span&gt; &lt;span style=&#34;color:#a90d91&#34;&gt;echo&lt;/span&gt; &lt;span style=&#34;color:#000&#34;&gt;$i&lt;/span&gt;: &lt;span style=&#34;color:#c41a16&#34;&gt;`&lt;/span&gt;./foo &lt;span style=&#34;color:#000&#34;&gt;$i&lt;/span&gt;&lt;span style=&#34;color:#c41a16&#34;&gt;`&lt;/span&gt;; &lt;span style=&#34;color:#a90d91&#34;&gt;done&lt;/span&gt;
+&lt;span style=&#34;color:#1c01ce&#34;&gt;0&lt;/span&gt;: 0xffffffffffffffff
+&lt;span style=&#34;color:#1c01ce&#34;&gt;1&lt;/span&gt;: 0x1
+&lt;span style=&#34;color:#1c01ce&#34;&gt;2&lt;/span&gt;: 0x3
+&lt;span style=&#34;color:#1c01ce&#34;&gt;3&lt;/span&gt;: 0x7
+...
+&lt;span style=&#34;color:#1c01ce&#34;&gt;60&lt;/span&gt;: 0xfffffffffffffff
+&lt;span style=&#34;color:#1c01ce&#34;&gt;61&lt;/span&gt;: 0x1fffffffffffffff
+&lt;span style=&#34;color:#1c01ce&#34;&gt;62&lt;/span&gt;: 0x3fffffffffffffff
+&lt;span style=&#34;color:#1c01ce&#34;&gt;63&lt;/span&gt;: 0x7fffffffffffffff
+&lt;span style=&#34;color:#1c01ce&#34;&gt;64&lt;/span&gt;: 0xffffffffffffffff
+&lt;span style=&#34;color:#1c01ce&#34;&gt;65&lt;/span&gt;: 0x1
+&lt;span style=&#34;color:#1c01ce&#34;&gt;66&lt;/span&gt;: 0x3
+&lt;span style=&#34;color:#1c01ce&#34;&gt;67&lt;/span&gt;: 0x7
+&lt;span style=&#34;color:#1c01ce&#34;&gt;68&lt;/span&gt;: 0xf
+&lt;span style=&#34;color:#1c01ce&#34;&gt;69&lt;/span&gt;: 0x1f
+&lt;span style=&#34;color:#1c01ce&#34;&gt;70&lt;/span&gt;: 0x3f&lt;/code&gt;&lt;/pre&gt;&lt;/div&gt;&lt;/p&gt;
+
+&lt;p&gt;In hindsight, shifting 0 bits obviously should produce &lt;code&gt;0xffffffffffffffff&lt;/code&gt; and
+using 6 bit mask for 64 bit length also obviously makes sense. None of this has
+any bearing on the Pegasus/Trident infoleak portion as long as the length is
+greater or equal to 512; I just found this minor detail interesting.&lt;/p&gt;
+</description>
+    </item>
+    
+  </channel>
+</rss>

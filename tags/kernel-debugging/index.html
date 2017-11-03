@@ -6,19 +6,19 @@
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 
-  <title>klue-less thoughts</title>
-  <meta property="og:title" content="klue-less thoughts" />
-  <meta name="twitter:title" content="klue-less thoughts" />
+  <title>Kernel Debugging</title>
+  <meta property="og:title" content="Kernel Debugging" />
+  <meta name="twitter:title" content="Kernel Debugging" />
   <meta name="author" content="klue"/>
   <meta name="twitter:card" content="summary" />
   <meta name="twitter:site" content="@kedyliu" />
   <meta name="twitter:creator" content="@kedyliu" />
-  <meta property="og:url" content="https://klue.github.io/" />
+  <meta property="og:url" content="https://klue.github.io/tags/kernel-debugging/" />
   <meta property="og:type" content="website" />
   <meta property="og:site_name" content="klue-less thoughts" />
 
   <meta name="generator" content="Hugo 0.30.2" />
-  <link rel="canonical" href="https://klue.github.io/" />
+  <link rel="canonical" href="https://klue.github.io/tags/kernel-debugging/" />
   <link rel="alternate" href="https://klue.github.io/index.xml" type="application/rss+xml" title="klue-less thoughts">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.7.1/katex.min.css" integrity="sha384-wITovz90syo1dJWVh32uuETPVEtGigN07tkttEqPv+uR2SE/mbQcG7ATL28aI9H0" crossorigin="anonymous">
   <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/4.7.0/css/font-awesome.min.css" />
@@ -74,210 +74,63 @@
 
 
 
-    
-  
-  
-  
 
-
-
-
-  
-
-  <header class="header-section ">
-    
-    <div class="intro-header no-img">
-      
-      <div class="container">
-        <div class="row">
-          <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
-            <div class="page-heading">
-              <h1>klue-less thoughts</h1>
-                
-                
+    <header class="header-section ">
+      <div class="intro-header no-img">
+        <div class="container">
+          <div class="row">
+            <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+              <div class="page-heading">
+                <h2>#Kernel Debugging</h2>
+              </div>
             </div>
           </div>
         </div>
       </div>
-    </div>
-  </header>
+    </header>
 
-
-
-    <div role="main" class="container">
+    <div class="container" role="main">
       <div class="row">
         <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
-          
           <div class="posts-list">
             
             
               <article class="post-preview">
-              <a href="https://klue.github.io/blog/2017/09/hevd_stack_gs/">
-                <h2 class="post-title">HEVD Stack Overflow GS</h2>
-
-                
-              </a>
-
-              <span class="post-meta">
-  Posted on September 5, 2017
-  
-</span>
-
-
-              <div class="post-entry">
-                
-                  Lately, I've decided to play around with HackSys Extreme Vulnerable Driver (HEVD) for fun. It's a great way to familiarize yourself with Windows exploitation. In this blog post, I'll show how to exploit the stack overflow that is protected with /GS stack cookies on Windows 7 SP1 32 bit. You can find the source code here. It has a few more exploits written and a Win10 pre-anniversary version of the regular stack buffer overflow vulnerability.
-                  <a href="https://klue.github.io/blog/2017/09/hevd_stack_gs/" class="post-read-more">[Read More]</a>
-                
-              </div>
-
-              
-                <span class="post-meta">
-                
-                  #<a href="/tags/exploitation">exploitation</a>&nbsp;
-                
-                  #<a href="/tags/windows">windows</a>&nbsp;
-                
-                  #<a href="/tags/hevd">hevd</a>&nbsp;
-                
-                </span>
-              
-
-              </article>
-            
-              <article class="post-preview">
-              <a href="https://klue.github.io/blog/2017/04/macos_kernel_debugging_vbox/">
-                <h2 class="post-title">Debugging macOS Kernel using VirtualBox</h2>
-
-                
-              </a>
-
-              <span class="post-meta">
-  Posted on April 10, 2017
-  
-</span>
-
-
-              <div class="post-entry">
-                
-                  Update: In the HN discussion, awalton mentioned you can set CPUID flags in VMWare. Simply adding cpuid.7.ebx = &quot;-----------0--------------------&quot; to the vmx file will disable SMAP.
+                <a href="https://klue.github.io/blog/2017/04/macos_kernel_debugging_vbox/">
+                  <h2 class="post-title">Debugging macOS Kernel using VirtualBox</h2>
+      
+                  
+                </a>
+      
+                <p class="post-meta">
+                  Posted on April 10, 2017
+                </p>
+                <div class="post-entry">
+                  
+                    Update: In the HN discussion, awalton mentioned you can set CPUID flags in VMWare. Simply adding cpuid.7.ebx = &quot;-----------0--------------------&quot; to the vmx file will disable SMAP.
 Late last year, I upgraded my old MBP to the 2016 model with a Skylake processor. As I was debugging a kernel exploit, it turned out that SMAP was enabled inside my VMWare Fusion VM. I wanted to avoid dealing with SMAP, but couldn't figure out how to disable it in Fusion.
-                  <a href="https://klue.github.io/blog/2017/04/macos_kernel_debugging_vbox/" class="post-read-more">[Read More]</a>
+                    <a href="https://klue.github.io/blog/2017/04/macos_kernel_debugging_vbox/" class="post-read-more">[Read More]</a>
+                  
+                </div>
+      
                 
-              </div>
-
-              
-                <span class="post-meta">
+                  <span class="post-meta">
+                    
+                      #<a href="/tags/kernel-debugging">kernel debugging</a>&nbsp;
+                    
+                      #<a href="/tags/macos">macOS</a>&nbsp;
+                    
+                      #<a href="/tags/virtualbox">VirtualBox</a>&nbsp;
+                    
+                  </span>
                 
-                  #<a href="/tags/kernel-debugging">kernel debugging</a>&nbsp;
-                
-                  #<a href="/tags/macos">macOS</a>&nbsp;
-                
-                  #<a href="/tags/virtualbox">VirtualBox</a>&nbsp;
-                
-                </span>
-              
-
-              </article>
-            
-              <article class="post-preview">
-              <a href="https://klue.github.io/blog/2017/03/pegasus_shift/">
-                <h2 class="post-title">A Shifty Detail in Pegasus</h2>
-
-                
-              </a>
-
-              <span class="post-meta">
-  Posted on March 7, 2017
-  
-</span>
-
-
-              <div class="post-entry">
-                
-                  Late last year, Pegasus received all the buzz in the macOS/iOS scene. The spyware was used by nation state actors, targeting human rights defender Ahmed Mansoor. Developed by NSO Group in Israel, the malware is usually introduced via a malicious link through text message, and is capable of gaining remote kernel code execution on the target iOS device's before jailbreaking and installing itself onto the victim device.
-Pegasus leverages 3 vulnerabilities collectively known as Trident-- a webkit memory corruption, a kernel infoleak, and another memory corruption in the kernel.
-                  <a href="https://klue.github.io/blog/2017/03/pegasus_shift/" class="post-read-more">[Read More]</a>
-                
-              </div>
-
-              
-                <span class="post-meta">
-                
-                  #<a href="/tags/pegasus">Pegasus</a>&nbsp;
-                
-                  #<a href="/tags/trident">Trident</a>&nbsp;
-                
-                  #<a href="/tags/macos">macOS</a>&nbsp;
-                
-                </span>
-              
-
-              </article>
-            
-              <article class="post-preview">
-              <a href="https://klue.github.io/blog/2017/03/password_manager/">
-                <h2 class="post-title">How to think about password managers</h2>
-
-                
-              </a>
-
-              <span class="post-meta">
-  Posted on March 2, 2017
-  
-</span>
-
-
-              <div class="post-entry">
-                
-                  There exist numerous methods to authenticate a user to a system, but using only passwords continues to be the dominating choice [1, 2]. Under these circumstances, ideally, a user would have strong, unique passwords for each account that he or she has. However, this is an unrealistic expectation for the average human being. Thus largely, the general population uses a handful of weak passwords for all of their user accounts.[3, 4, 5, 6]
-                  <a href="https://klue.github.io/blog/2017/03/password_manager/" class="post-read-more">[Read More]</a>
-                
-              </div>
-
-              
-                <span class="post-meta">
-                
-                  #<a href="/tags/passwords">passwords</a>&nbsp;
-                
-                  #<a href="/tags/password-managers">password managers</a>&nbsp;
-                
-                </span>
-              
-
-              </article>
-            
-              <article class="post-preview">
-              <a href="https://klue.github.io/blog/2017/02/hello_world/">
-                <h2 class="post-title">hello world</h2>
-
-                
-              </a>
-
-              <span class="post-meta">
-  Posted on February 27, 2017
-  
-</span>
-
-
-              <div class="post-entry">
-                
-                  <p>Hello world. This is my blog.</p>
-
-                
-              </div>
-
-              
-
+      
               </article>
             
           </div>
-
-          
         </div>
       </div>
     </div>
-
     <footer>
   <div class="container">
     <div class="row">

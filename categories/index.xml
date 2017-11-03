@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes" ?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>Categories on klue-less thoughts</title>
+    <link>https://klue.github.io/categories/</link>
+    <description>Recent content in Categories on klue-less thoughts</description>
+    <generator>Hugo -- gohugo.io</generator>
+    <language>en-us</language>
+    <atom:link href="https://klue.github.io/categories/" rel="self" type="application/rss+xml" />
+    
+    <item>
+      <title>Exploitation</title>
+      <link>https://klue.github.io/categories/exploitation/</link>
+      <pubDate>Tue, 05 Sep 2017 00:00:00 +0000</pubDate>
+      
+      <guid>https://klue.github.io/categories/exploitation/</guid>
+      <description></description>
+    </item>
+    
+    <item>
+      <title>Security</title>
+      <link>https://klue.github.io/categories/security/</link>
+      <pubDate>Tue, 05 Sep 2017 00:00:00 +0000</pubDate>
+      
+      <guid>https://klue.github.io/categories/security/</guid>
+      <description></description>
+    </item>
+    
+    <item>
+      <title>Windows</title>
+      <link>https://klue.github.io/categories/windows/</link>
+      <pubDate>Tue, 05 Sep 2017 00:00:00 +0000</pubDate>
+      
+      <guid>https://klue.github.io/categories/windows/</guid>
+      <description></description>
+    </item>
+    
+  </channel>
+</rss>

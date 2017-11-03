@@ -1,0 +1,257 @@
+<?xml version="1.0" encoding="utf-8" standalone="yes" ?>
+<rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
+  <channel>
+    <title>Virtualbox on klue-less thoughts</title>
+    <link>https://klue.github.io/tags/virtualbox/</link>
+    <description>Recent content in Virtualbox on klue-less thoughts</description>
+    <generator>Hugo -- gohugo.io</generator>
+    <language>en-us</language>
+    <lastBuildDate>Mon, 10 Apr 2017 00:00:00 +0000</lastBuildDate>
+    <atom:link href="https://klue.github.io/tags/virtualbox/" rel="self" type="application/rss+xml" />
+    
+    <item>
+      <title>Debugging macOS Kernel using VirtualBox</title>
+      <link>https://klue.github.io/blog/2017/04/macos_kernel_debugging_vbox/</link>
+      <pubDate>Mon, 10 Apr 2017 00:00:00 +0000</pubDate>
+      
+      <guid>https://klue.github.io/blog/2017/04/macos_kernel_debugging_vbox/</guid>
+      <description>&lt;p&gt;&lt;em&gt;Update:&lt;/em&gt; In the &lt;a href=&#34;https://news.ycombinator.com/item?id=14079163&#34;&gt;HN discussion&lt;/a&gt;, awalton mentioned you can set CPUID flags in VMWare. Simply adding &lt;code&gt;cpuid.7.ebx = &amp;quot;-----------0--------------------&amp;quot;&lt;/code&gt; to the vmx file will disable SMAP.&lt;/p&gt;
+
+&lt;p&gt;Late last year, I upgraded my old MBP to the 2016 model with a Skylake
+processor. As I was debugging a kernel exploit, it turned out that
+&lt;a href=&#34;https://lwn.net/Articles/517475/&#34;&gt;SMAP&lt;/a&gt; was enabled inside my VMWare Fusion
+VM. I wanted to avoid dealing with SMAP, but couldn&#39;t figure out how to disable
+it in Fusion. Luckily, VirtualBox VMs do not support SMAP (yet?).&lt;/p&gt;
+
+&lt;p&gt;This post will be a step-by-step guide on how to setup macOS kernel
+source-level debugging using VirtualBox. Though all the step examples are
+geared toward VirtualBox, this guide can also be used to setup kernel debugging
+on VMWare Fusion since it&#39;s even more straightforward in Fusion.&lt;/p&gt;
+
+&lt;h2 id=&#34;installing-virtualbox-and-sierra&#34;&gt;Installing VirtualBox and Sierra&lt;/h2&gt;
+
+&lt;p&gt;If you don&#39;t already have a macOS VirtualBox VM, we must first install the
+target macOS on a VM. You can either provide the vmdk from a VMWare Fusion VM,
+or create a fresh VM. VirtualBox requires an ISO image to install the OS for
+newly created VMs. The commands below can be used to create an ISO from the
+Sierra install app obtained from the &lt;a href=&#34;https://itunes.apple.com/us/app/macos-sierra/id1127487414?ls=1&amp;amp;mt=12&#34;&gt;Mac app
+store&lt;/a&gt;.&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&#34;language-text&#34;&gt;$ hdiutil attach /Applications/Install\ macOS\ Sierra.app/Contents/SharedSupport/InstallESD.dmg -noverify -nobrowse -mountpoint /Volumes/installesd
+$ hdiutil create -o /tmp/Sierra -size 8g -type SPARSE -layout SPUD -fs HFS+J
+$ hdiutil attach /tmp/Sierra.sparseimage -noverify -nobrowse -mountpoint /Volumes/install
+$ asr restore -source /Volumes/installesd/BaseSystem.dmg -target /Volumes/install -noprompt -noverify -erase
+$ rm /Volumes/OS\ X\ Base\ System/System/Installation/Packages
+$ cp -rp /Volumes/installesd/Packages /Volumes/OS\ X\ Base\ System/System/Installation/
+$ cp -rp /Volumes/installesd/BaseSystem.dmg /Volumes/OS\ X\ Base\ System/BaseSystem.dmg
+$ cp -rp /Volumes/installesd/BaseSystem.chunklist /Volumes/OS\ X\ Base\ System/BaseSystem.chunklist
+$ hdiutil detach /Volumes/installesd
+$ hdiutil detach /Volumes/OS\ X\ Base\ System/
+$ hdiutil resize -sectors min /tmp/Sierra.sparseimage
+$ hdiutil convert /tmp/Sierra.sparseimage -format UDTO -o /tmp/Sierra
+$ rm /tmp/Sierra.sparseimage
+$ mv /tmp/Sierra.cdr /tmp/Sierra.iso
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;h4 id=&#34;networking&#34;&gt;Networking&lt;/h4&gt;
+
+&lt;p&gt;If you are using a bridged adapter, there isn&#39;t anything special you need to
+do.&lt;/p&gt;
+
+&lt;p&gt;If you decide to go with NAT, you&#39;ll need to enable port forwarding for KDP to
+work with the VM. In the adapter settings, choose
+&lt;em&gt;Advanced&lt;/em&gt;&lt;span  class=&#34;math&#34;&gt;\(\rightarrow\)&lt;/span&gt;&lt;em&gt;Port Forwarding&lt;/em&gt;. We need to reach 41139/UDP on the
+debugee VM, so I forward localhost 41139/UDP to the VM&#39;s 41139/UDP.&lt;/p&gt;
+
+&lt;h2 id=&#34;installing-xcode&#34;&gt;Installing XCode&lt;/h2&gt;
+
+&lt;p&gt;Install XCode on your host machine. The easiest way is to install it from the
+&lt;a href=&#34;https://itunes.apple.com/us/app/xcode/id497799835?ls=1&amp;amp;mt=12&#34;&gt;Mac app store&lt;/a&gt;.
+After installing, accepting the XCode license is required either by opening
+XCode and accepting, or through command line.&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&#34;language-text&#34;&gt;$ sudo xcodebuild -license accept
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;h2 id=&#34;install-kernel-debug-kit-kdk-on&#34;&gt;Install Kernel Debug Kit (KDK) on&lt;/h2&gt;
+
+&lt;p&gt;On our host debugger machine, we need to install the &lt;a href=&#34;https://developer.apple.com/download/more/&#34;&gt;KDK from the Apple
+Developer site&lt;/a&gt; corresponding to
+our debugee macOS version and build. In this guide, I used 10.12 build 16A323.&lt;/p&gt;
+
+&lt;p&gt;The KDK installs to &lt;code&gt;/Library/Developer/KDKs&lt;/code&gt; and provides RELEASE,
+DEVELOPMENT, and DEBUG kernels for macOS, as well as symbols for these kernels
+and various Apple kexts. The difference between the different kernels is that
+the DEVELOPMENT and DEBUG kernels have additional assertions and error checking
+compared to RELEASE with the DEBUG build having even more than DEVELOPMENT.&lt;/p&gt;
+
+&lt;p&gt;&lt;em&gt;Note:&lt;/em&gt; The debugee system does not need to have the KDK installed.&lt;/p&gt;
+
+&lt;h2 id=&#34;update-nvram-bootargs&#34;&gt;Update nvram boot-args&lt;/h2&gt;
+
+&lt;p&gt;In order to debug the VM, we must set the &lt;code&gt;debug&lt;/code&gt; option of &lt;code&gt;boot-args&lt;/code&gt; in
+nvram on our debugee VM. There are numerous options in addition to &lt;code&gt;debug&lt;/code&gt; that
+we can use. Below are a few that could be of interest including &lt;code&gt;debug&lt;/code&gt;.&lt;/p&gt;
+
+&lt;ul&gt;
+&lt;li&gt;&lt;code&gt;-v&lt;/code&gt;: Always boot the system in verbose mode.&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;kcsuffix&lt;/code&gt;: Specifies which kernel to boot using a given suffix.&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;pmuflags&lt;/code&gt;: Many people still seem to recommend setting this option to 1. However, &lt;a href=&#34;https://developer.apple.com/library/content/documentation/Darwin/Conceptual/KernelProgramming/build/build.html&#34;&gt;Apple&#39;s Kernel Programming Guide&lt;/a&gt; says the power management watchdog timer &amp;quot;is only present in G4 and earlier desktops and laptops and in early G5 desktops&amp;quot;, and the other primary watchdog timer is &amp;quot;normally only enabled in OS X Server.&amp;quot; Thus, this option doesn&#39;t seem to do anything, though setting it doesn&#39;t hurt.&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;-zc zlog=&amp;lt;zone_name&amp;gt;&lt;/code&gt;: &lt;code&gt;zc&lt;/code&gt; in conjunction with &lt;code&gt;zlog&lt;/code&gt; logs both allocations and frees to the specified zone.&lt;/li&gt;
+&lt;li&gt;&lt;code&gt;debug&lt;/code&gt;: This option allows us to perform remote kernel debugging. Available flags are listed in the &lt;a href=&#34;https://developer.apple.com/library/content/documentation/Darwin/Conceptual/KernelProgramming/build/build.html#//apple_ref/doc/uid/TP30000905-CH221-BABDGEGF&#34;&gt;Apple docs&lt;/a&gt;. I usually use &lt;code&gt;DB_LOG_PI_SCRN | DB_ARP | DB_NMI&lt;/code&gt;.
+
+&lt;ul&gt;
+&lt;li&gt;Non-maskable interrupts (NMI) can be triggered by pressing &lt;em&gt;control + option + command + shift + escape&lt;/em&gt;. Triggering an NMI will break in the debugger which is super convenient. This key combo does not play well with VirtualBox when it covers the host key combo so I rebound the host key to &lt;em&gt;right command + right option&lt;/em&gt;.&lt;/li&gt;
+&lt;/ul&gt;&lt;/li&gt;
+&lt;/ul&gt;
+
+&lt;h3 id=&#34;modifying-nvram&#34;&gt;Modifying nvram&lt;/h3&gt;
+
+&lt;p&gt;In VMWare Fusion, you modify nvram using the &lt;code&gt;nvram&lt;/code&gt; command like so:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&#34;language-text&#34;&gt;$ sudo nvram boot-args=&amp;quot;-v debug=0x144&amp;quot;
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;On VirtualBox, you&#39;ll find it&#39;s not so easy. After a reboot, the nvram
+modifications will have disappeared. &lt;a href=&#34;https://www.virtualbox.org/manual/ch03.html#idm1685&#34;&gt;VirtualBox User Manual
+&amp;sect;3.13.2&lt;/a&gt; sheds some
+light:&lt;/p&gt;
+
+&lt;blockquote&gt;
+&lt;p&gt;It is currently not possible to manipulate EFI variables from within a
+running guest (e.g., setting the &amp;quot;boot-args&amp;quot; variable by running the nvram
+tool in a Mac OS X guest will not work). As an alternative way,
+&amp;quot;VBoxInternal2/EfiBootArgs&amp;quot; extradata can be passed to a VM in order to set
+the &amp;quot;boot-args&amp;quot; variable. To change the &amp;quot;boot-args&amp;quot; EFI variable:&lt;/p&gt;
+&lt;/blockquote&gt;
+
+&lt;p&gt;Thus, we need to shutdown our VM and run the commands below on our host.&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&#34;language-text&#34;&gt;$ VBoxManage list vms # take the UUID to use in the next command
+&amp;quot;macOS 10.12.0&amp;quot; {9ad936f8-9360-44a6-ba3e-c4d92b4243e8}
+$ VBoxManage setextradata 9ad936f8-9360-44a6-ba3e-c4d92b4243e8 VBoxInternal2/EfiBootArgs &amp;quot;-v debug=0x144&amp;quot;
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;h2 id=&#34;swapping-kernels&#34;&gt;Swapping Kernels&lt;/h2&gt;
+
+&lt;p&gt;I alluded to debugging different builds of kernels previously, mentioning that
+the &lt;code&gt;kcsuffix&lt;/code&gt; option specifies which kernel build to use. The kernel file must
+be at &lt;code&gt;/System/Library/Kernels&lt;/code&gt; on the debugee VM. It should not be a surprise
+that this directory is &lt;a href=&#34;https://support.apple.com/en-us/HT204899&#34;&gt;protected by System Integrity Protection
+(SIP)&lt;/a&gt;. Therefore, if you want to use
+a KDK kernel or &lt;a href=&#34;http://shantonu.blogspot.ca&#34;&gt;a self-compiled kernel&lt;/a&gt;, you must
+first boot into recovery, copy the target kernel to the above directory,
+invalidate the kext cache, and then reboot.&lt;/p&gt;
+
+&lt;h4 id=&#34;reliably-booting-into-recovery&#34;&gt;Reliably Booting into Recovery&lt;/h4&gt;
+
+&lt;p&gt;In Fusion, booting into recovery mode using &lt;em&gt;cmd+R&lt;/em&gt; is as easy as doing so on a
+physical machine. VirtualBox, on the other hand, requires a &lt;a href=&#34;http://anadoxin.org/blog/disabling-system-integrity-protection-from-guest-el-capitan-under-virtualbox-5.html&#34;&gt;few more
+steps&lt;/a&gt;.&lt;/p&gt;
+
+&lt;p&gt;When booting the VM, hit F12, and select &lt;em&gt;Boot Manager&lt;/em&gt;&lt;span  class=&#34;math&#34;&gt;\(\rightarrow\)&lt;/span&gt;&lt;em&gt;EFI
+Internal Shell&lt;/em&gt;. You will be greeted by an EFI shell. To boot into recovery,
+type:&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&#34;language-text&#34;&gt;FS2:\com.apple.recovery.boot\boot.efi
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Once the recovery GUI loads, launch a terminal, move the target kernels, then
+invalidate the kextcache.&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&#34;language-text&#34;&gt;# mv /path/to/kernels/kernel.development /System/Library/Kernels
+# kextcache -invalidate /Volumes/Macintosh\ HD
+# reboot
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Before reboot, you can optionally disable SIP if desired.&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&#34;language-text&#34;&gt;# csrutil disable
+Successfully disabled System Integrity Protection. Please restart the machine for the changes to take effect.
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;h2 id=&#34;sourcelevel-debugging&#34;&gt;Source-level Debugging&lt;/h2&gt;
+
+&lt;p&gt;Download the &lt;a href=&#34;https://opensource.apple.com&#34;&gt;XNU source code&lt;/a&gt; corresponding to
+the debuggee XNU version. To gain source-level debugging, LLDB will look in
+&lt;code&gt;/Library/Caches/com.apple.xbs/Sources/xnu/xnu-...&lt;/code&gt; for the kernel source. You
+can either place the downloaded source there, or create a symlink there that
+points to the source. Alternatively, you can also set &lt;code&gt;target.source-map&lt;/code&gt; in
+LLDB.&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&#34;language-text&#34;&gt;lldb&amp;gt; settings set target.source-map /Library/Caches/com.apple.xbs/Sources/xnu/xnu-3789.1.32 /Users/kedy/Downloads/xnu-3789.1.32
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Previous versions of macOS like Yosemite, you had to place source code in
+&lt;code&gt;/SourceCache/xnu/&lt;/code&gt;.&lt;/p&gt;
+
+&lt;h2 id=&#34;setting-up-lldb&#34;&gt;Setting up LLDB&lt;/h2&gt;
+
+&lt;p&gt;Finally now, we can break out the debugger. The example below sets the target
+file to the RELEASE kernel build.&lt;/p&gt;
+
+&lt;p&gt;To use the XNU LLDB macros in Sierra KDK, the &lt;code&gt;macholib&lt;/code&gt; Python module is
+required now. A simple &lt;code&gt;pip install macholib&lt;/code&gt; should do the trick. To use the
+nifty LLDB macros, copy paste the KDK debug script command that is prompted
+when you first set the target file to a KDK kernel.&lt;/p&gt;
+
+&lt;p&gt;After triggering an NMI (or waiting for debugger to halt the boot process if
+you chose &lt;code&gt;DB_HALT&lt;/code&gt; flag), connect to the debugee with the command &lt;code&gt;kdp-remote
+&amp;lt;ip&amp;gt;&lt;/code&gt; where &lt;code&gt;&amp;lt;ip&amp;gt;&lt;/code&gt; is the IP address (localhost if you used the NAT port
+forwarding).&lt;/p&gt;
+
+&lt;pre&gt;&lt;code class=&#34;language-text&#34;&gt;$ lldb /Library/Developer/KDKs/KDK_10.11.2_15C50.kdk/System/Library/Kernels/kernel
+(lldb) target create &amp;quot;/Library/Developer/KDKs/KDK_10.11.2_15C50.kdk/System/Library/Kernels/kernel&amp;quot;
+warning: &#39;kernel&#39; contains a debug script. To run this script in this debug session:
+
+    command script import &amp;quot;/Library/Developer/KDKs/KDK_10.11.2_15C50.kdk/System/Library/Kernels/kernel.dSYM/Contents/Resources/DWARF/../Python/kernel.py&amp;quot;
+
+To run all discovered debug scripts in this session:
+
+    settings set target.load-script-from-symbol-file true
+
+Current executable set to &#39;/Library/Developer/KDKs/KDK_10.11.2_15C50.kdk/System/Library/Kernels/kernel&#39; (x86_64).
+(lldb) command script import &amp;quot;/Library/Developer/KDKs/KDK_10.11.2_15C50.kdk/System/Library/Kernels/kernel.dSYM/Contents/Resources/DWARF/../Python/kernel.py&amp;quot;
+Loading kernel debugging from /Library/Developer/KDKs/KDK_10.11.2_15C50.kdk/System/Library/Kernels/kernel.dSYM/Contents/Resources/DWARF/../Python/kernel.py
+LLDB version lldb-370.0.40
+  Swift-3.1
+settings set target.process.python-os-plugin-path &amp;quot;/Library/Developer/KDKs/KDK_10.11.2_15C50.kdk/System/Library/Kernels/kernel.dSYM/Contents/Resources/DWARF/../Python/lldbmacros/core/operating_system.py&amp;quot;
+settings set target.trap-handler-names hndl_allintrs hndl_alltraps trap_from_kernel hndl_double_fault hndl_machine_check _fleh_prefabt _ExceptionVectorsBase _ExceptionVectorsTable _fleh_undef _fleh_dataabt _fleh_irq _fleh_decirq _fleh_fiq_generic _fleh_dec
+command script import &amp;quot;/Library/Developer/KDKs/KDK_10.11.2_15C50.kdk/System/Library/Kernels/kernel.dSYM/Contents/Resources/DWARF/../Python/lldbmacros/xnu.py&amp;quot;
+xnu debug macros loaded successfully. Run showlldbtypesummaries to enable type summaries.
+
+
+(lldb) kdp-remote 192.168.149.184
+Version: Darwin Kernel Version 15.2.0: Fri Nov 13 19:56:56 PST 2015; root:xnu-3248.20.55~2/RELEASE_X86_64; UUID=17EA3101-D2E4-31BF-BDA9-931F51049F93; stext=0xffffff8007a00000
+Kernel UUID: 17EA3101-D2E4-31BF-BDA9-931F51049F93
+Load Address: 0xffffff8007a00000
+Kernel slid 0x7800000 in memory.
+Loaded kernel file /Library/Developer/KDKs/KDK_10.11.2_15C50.kdk/System/Library/Kernels/kernel
+Target arch: x86_64
+Instantiating threads completely from saved state in memory.
+Loading 82 kext modules warning: Can&#39;t find binary/dSYM for com.apple.kec.corecrypto (491718F5-B509-31DC-92B5-6BAC95E3F494)
+.warning: Can&#39;t find binary/dSYM for com.apple.kec.pthread (0888BA0A-49EE-394A-AEB1-1E5C6838A1F2)
+
+(omitted...)
+
+. done.
+kernel was compiled with optimization - stepping may behave oddly; variables may not be available.
+Process 1 stopped
+* thread #2, name = &#39;0xffffff800db8b000&#39;, queue = &#39;0x0&#39;, stop reason = signal SIGSTOP
+    frame #0: 0xffffff8007bd655e kernel`Debugger(message=&amp;lt;unavailable&amp;gt;) at model_dep.c:1020 [opt]
+   1017
+   1018		doprnt_hide_pointers = old_doprnt_hide_pointers;
+   1019		__asm__(&amp;quot;int3&amp;quot;);
+-&amp;gt; 1020		hw_atomic_sub(&amp;amp;debug_mode, 1);
+   1021	}
+   1022
+   1023	char *
+(lldb)  
+&lt;/code&gt;&lt;/pre&gt;
+
+&lt;p&gt;Voila, source-level debugging macOS kernel!&lt;/p&gt;
+</description>
+    </item>
+    
+  </channel>
+</rss>
