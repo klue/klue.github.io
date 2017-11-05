@@ -204,7 +204,7 @@ we can use. Below are a few that could be of interest including <code>debug</cod
 <li><code>-v</code>: Always boot the system in verbose mode.</li>
 <li><code>kcsuffix</code>: Specifies which kernel to boot using a given suffix.</li>
 <li><code>pmuflags</code>: Many people still seem to recommend setting this option to 1. However, <a href="https://developer.apple.com/library/content/documentation/Darwin/Conceptual/KernelProgramming/build/build.html">Apple's Kernel Programming Guide</a> says the power management watchdog timer &quot;is only present in G4 and earlier desktops and laptops and in early G5 desktops&quot;, and the other primary watchdog timer is &quot;normally only enabled in OS X Server.&quot; Thus, this option doesn't seem to do anything, though setting it doesn't hurt.</li>
-<li><code>-zc zlog=&lt;zone_name&gt;</code>: <code>zc</code> in conjunction with <code>zlog</code> logs both allocations and frees to the specified zone.</li>
+<li><code>-zc zlog1=&lt;zone_name&gt;</code>: <code>zc</code> in conjunction with <code>zlog#</code> logs both allocations and frees to the specified zone where # is 1-5.</li>
 <li><code>debug</code>: This option allows us to perform remote kernel debugging. Available flags are listed in the <a href="https://developer.apple.com/library/content/documentation/Darwin/Conceptual/KernelProgramming/build/build.html#//apple_ref/doc/uid/TP30000905-CH221-BABDGEGF">Apple docs</a>. I usually use <code>DB_LOG_PI_SCRN | DB_ARP | DB_NMI</code>.
 
 <ul>
